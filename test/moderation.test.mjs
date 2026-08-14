@@ -23,6 +23,11 @@ const cases = [
   ['madrid', 'Barcelona', '9', BLOCK, 'rival club name'],
   ['united', 'Anfield', '9', BLOCK, 'rival colourway name'],
   ['barcelona', 'Barcelona', '9', ALLOW, 'own club name is fine'],
+  ['arsenal', 'Tottenham', '9', BLOCK, 'club we no longer stock'],
+  ['arsenal', 'Spurs', '9', BLOCK, 'nickname of a club we no longer stock'],
+  ['liverpool', 'Everton', '9', BLOCK, 'club never in the catalogue'],
+  ['united', 'Juventus', '9', BLOCK, 'foreign club'],
+  ['liverpool', 'Son', '7', BLOCK, 'legend of a club we no longer stock'],
 
   // Slurs and hate terms, including evasion attempts.
   ['liverpool', 'n i g g e r', '9', BLOCK, 'spacing evasion'],

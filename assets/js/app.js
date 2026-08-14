@@ -111,11 +111,28 @@ if (marquee) {
 /* ---- homepage: collection grid -------------------------------------- */
 const bento = $('#bento');
 if (bento) {
-  const WIDE = [0, 7];
+  /* Every bento row has to total 12 columns or the last one leaves a hole.
+     A wide card is 6 and pairs with two smalls; four smalls also make 12.
+     Worked out from the count rather than hardcoded, because the collection
+     changes and a stale index list fails silently. */
+  function wideIndices(n) {
+    const wide = new Set();
+    let i = 0;
+    while (i < n) {
+      const left = n - i;
+      if (left <= 2) { for (let k = i; k < n; k++) wide.add(k); i = n; }
+      else if (left % 4 === 0) { i += 4; }
+      else { wide.add(i); i += 3; }
+    }
+    return wide;
+  }
+
+  const WIDE = wideIndices(KITS.length);
 
   KITS.forEach((kit, i) => {
+    const soon = kit.status === 'preorder';
     const card = document.createElement('a');
-    card.className = 'kit' + (WIDE.includes(i) ? ' kit--wide' : '');
+    card.className = 'kit' + (WIDE.has(i) ? ' kit--wide' : '') + (soon ? ' kit--soon' : '');
     card.href = `customize.html?kit=${kit.id}`;
 
     card.innerHTML =
@@ -126,7 +143,7 @@ if (bento) {
         '<span class="kit-price"></span></div>' +
       '</div></div>';
 
-    $('.kit-tag', card).textContent = kit.line;
+    $('.kit-tag', card).textContent = soon ? 'Preorder' : kit.line;
     // Only the wide cards render this; CSS hides it everywhere else.
     $('.kit-plate', card).textContent = kit.line;
     $('h3', card).textContent = kit.club;

@@ -6,6 +6,7 @@
 export const KITS = [
   {
     id: 'madrid',
+    status: 'stock',
     club: 'Real Madrid',
     city: 'Madrid',
     line: 'Merengue',
@@ -19,6 +20,7 @@ export const KITS = [
   },
   {
     id: 'barcelona',
+    status: 'stock',
     club: 'Barcelona',
     city: 'Barcelona',
     line: 'Blaugrana',
@@ -32,6 +34,7 @@ export const KITS = [
   },
   {
     id: 'bayern',
+    status: 'preorder',
     club: 'Bayern Munich',
     city: 'Munich',
     line: 'Rekordmeister',
@@ -44,20 +47,8 @@ export const KITS = [
     note: 'Deep red with a tonal diamond ground.'
   },
   {
-    id: 'psg',
-    club: 'Paris Saint-Germain',
-    city: 'Paris',
-    line: 'Hechter',
-    accent: '#DA291C',
-    price: 60,
-    pattern: { type: 'hechter', base: '#0B2A55', alt: '#DA291C', edge: '#F5F3EE' },
-    trim: '#F5F3EE',
-    collar: 'v',
-    ink: '#FFFFFF',
-    note: 'Navy split by the centre band.'
-  },
-  {
     id: 'arsenal',
+    status: 'stock',
     club: 'Arsenal',
     city: 'London',
     line: 'Highbury',
@@ -70,33 +61,22 @@ export const KITS = [
     note: 'Red body, pale sleeves, nothing else.'
   },
   {
-    id: 'liverpool',
-    club: 'Liverpool',
-    city: 'Liverpool',
-    line: 'Anfield',
-    accent: '#C8102E',
-    price: 52,
-    pattern: { type: 'solid', base: '#B4102A' },
-    trim: '#E0C36A',
-    collar: 'crew',
-    ink: '#FFFFFF',
-    note: 'One colour, head to hem.'
-  },
-  {
-    id: 'city',
-    club: 'Manchester City',
-    city: 'Manchester',
-    line: 'Maine Road',
-    accent: '#6CABDD',
-    price: 52,
-    pattern: { type: 'solid', base: '#7FBBE8' },
-    trim: '#0B1D3A',
+    id: 'psg',
+    status: 'preorder',
+    club: 'Paris Saint-Germain',
+    city: 'Paris',
+    line: 'Hechter',
+    accent: '#DA291C',
+    price: 60,
+    pattern: { type: 'hechter', base: '#0B2A55', alt: '#DA291C', edge: '#F5F3EE' },
+    trim: '#F5F3EE',
     collar: 'v',
-    ink: '#0B1D3A',
-    note: 'Sky blue with a navy placket.'
+    ink: '#FFFFFF',
+    note: 'Navy split by the centre band.'
   },
   {
     id: 'chelsea',
+    status: 'preorder',
     club: 'Chelsea',
     city: 'London',
     line: 'Stamford',
@@ -109,20 +89,22 @@ export const KITS = [
     note: 'Royal blue, gold at the neck.'
   },
   {
-    id: 'spurs',
-    club: 'Tottenham Hotspur',
-    city: 'London',
-    line: 'Lilywhite',
-    accent: '#132257',
-    price: 50,
-    pattern: { type: 'solid', base: '#F6F5F1' },
-    trim: '#132257',
-    collar: 'v',
-    ink: '#132257',
-    note: 'White on white with a navy edge.'
+    id: 'liverpool',
+    status: 'stock',
+    club: 'Liverpool',
+    city: 'Liverpool',
+    line: 'Anfield',
+    accent: '#C8102E',
+    price: 52,
+    pattern: { type: 'solid', base: '#B4102A' },
+    trim: '#E0C36A',
+    collar: 'crew',
+    ink: '#FFFFFF',
+    note: 'One colour, head to hem.'
   },
   {
     id: 'united',
+    status: 'stock',
     club: 'Manchester United',
     city: 'Manchester',
     line: 'Old Trafford',
@@ -133,6 +115,20 @@ export const KITS = [
     collar: 'crew',
     ink: '#FFFFFF',
     note: 'Red with shadow hooping across the chest.'
+  },
+  {
+    id: 'city',
+    status: 'preorder',
+    club: 'Manchester City',
+    city: 'Manchester',
+    line: 'Maine Road',
+    accent: '#6CABDD',
+    price: 52,
+    pattern: { type: 'solid', base: '#7FBBE8' },
+    trim: '#0B1D3A',
+    collar: 'v',
+    ink: '#0B1D3A',
+    note: 'Sky blue with a navy placket.'
   }
 ];
 

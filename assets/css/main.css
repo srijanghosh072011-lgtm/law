@@ -579,6 +579,39 @@ section { padding-block: clamp(5rem, 9vh, 8rem); }
   color: var(--bone-70);
 }
 
+/* Preorder cards stay fully legible — the shirt is the sell. Only the tag
+   changes state, so the grid does not turn into two visual tiers. */
+.kit--soon .kit-tag {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, rgba(8, 8, 10, 0.6));
+}
+.kit--soon .kit-price::after {
+  content: ' · Preorder';
+  color: var(--bone-45);
+  font-weight: 400;
+}
+
+.stock-note {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--bone-45);
+}
+.stock-note::before {
+  content: '';
+  flex: none;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  transform: translateY(-2px);
+  background: #78be82;
+}
+.stock-note[data-tone='soon'] { color: var(--bone-70); }
+.stock-note[data-tone='soon']::before { background: var(--accent); }
+
 /* ============================================================
    SPLIT FEATURE
    ============================================================ */

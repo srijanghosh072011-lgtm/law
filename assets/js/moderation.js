@@ -135,6 +135,19 @@ const CLUB_NAMES = KITS.map((k) => ({
   keys: [normalise(k.club), normalise(k.line), normalise(k.city), k.id]
 }));
 
+/* Clubs we do not sell are still not going on the back of a shirt we do.
+   Rival names for stocked clubs come out of KITS automatically; this covers
+   everyone else, so dropping a colourway from the shop cannot quietly make
+   its name printable on a rival's shirt. */
+const OTHER_CLUBS = [
+  'tottenham', 'tottenhamhotspur', 'spurs', 'everton', 'westham', 'newcastle',
+  'leeds', 'astonvilla', 'nottinghamforest', 'sunderland', 'rangers', 'celtic',
+  'atletico', 'atleticomadrid', 'sevilla', 'valencia', 'realbetis',
+  'juventus', 'acmilan', 'milan', 'internazionale', 'inter', 'napoli', 'roma',
+  'dortmund', 'borussiadortmund', 'schalke', 'leverkusen',
+  'marseille', 'lyon', 'monaco', 'ajax', 'psv', 'feyenoord', 'porto', 'benfica'
+].map(normalise);
+
 /**
  * @param {string} name  raw name field
  * @param {string} number  raw number field
@@ -181,6 +194,14 @@ export function checkPersonalisation(name, number, kitId) {
     if (BLOCKED_NUMBERS.includes(num)) {
       return { ok: false, field: 'number', reason: 'That number is not available. Pick another.' };
     }
+  }
+
+  if (OTHER_CLUBS.includes(flat)) {
+    const on = KITS.find((k) => k.id === kitId).club;
+    return {
+      ok: false, field: 'name',
+      reason: `Another club's name does not go on ${article(on)} ${on} shirt.`
+    };
   }
 
   const rival = CLUB_NAMES.find((c) => c.id !== kitId && c.keys.includes(flat));

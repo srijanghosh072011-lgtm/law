@@ -1,6 +1,6 @@
 # ONZE
 
-A static shop front for football shirts. Ten club colourways, a live customiser
+A static shop front for football shirts. Nine club colourways, a live customiser
 with name/number screening, and no build step — open `index.html` and it runs.
 
 ```
@@ -25,7 +25,7 @@ Any static server. There is no toolchain, no dependencies, no build.
 
 ```bash
 python3 -m http.server 8000     # then open http://localhost:8000
-node test/moderation.test.mjs   # 33 moderation cases
+node test/moderation.test.mjs   # 38 moderation cases
 ```
 
 ES modules need to be served over HTTP — opening `index.html` off the
@@ -89,13 +89,29 @@ later can back a claim, make it explicitly and make it true.
 **A new colourway** — add an entry to `KITS` in `assets/js/kits.js`. The grid,
 the customiser dropdown, the marquee and the rival-name rules all read from that
 array, so nothing else needs touching. Six pattern types are available: `solid`,
-`stripes`, `hoops`, `hechter`, `sleeves`, `tonal`.
+`stripes`, `hoops`, `hechter`, `sleeves`, `tonal`. The bento grid works its own
+row packing out from the item count, so adding or removing a kit will not leave
+a hole in the last row.
+
+**Stock vs preorder** — each kit carries `status: 'stock'` or
+`status: 'preorder'`. Preorder kits show a marked tag on the card, a
+`(preorder)` suffix in the dropdown, a dispatch line above the total, and a
+`Preorder` button instead of `Add to bag`. Change the one word to move a
+colourway between states. Lead time lives in `PREORDER_WEEKS` in
+`customizer.js`, and the matching promise is in `terms.html` — keep those two in
+step.
+
+**A club you stop selling** — remove it from `KITS`, then add its name and
+nickname to `OTHER_CLUBS` in `moderation.js`. Rival names for stocked clubs come
+out of `KITS` automatically, so without that second step its name silently
+becomes printable on a rival's shirt.
 
 **The blocklist** — `assets/js/moderation.js`. The severe and hate tiers are
 ROT13-encoded so the repo does not contain a readable wall of slurs; encode new
 entries the same way. `LEGENDS` maps a player name to the colourways it is
 allowed on, which is what refuses Ronaldo on a Barcelona shirt. Rival *club*
-names are derived from `KITS` automatically.
+names come from `KITS` for stocked clubs and from `OTHER_CLUBS` for everyone
+else.
 
 Add a case to `test/moderation.test.mjs` for anything you change.
 

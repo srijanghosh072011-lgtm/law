@@ -7,6 +7,7 @@ import { setAccent } from './app.js';
 const $ = (sel) => document.querySelector(sel);
 
 const PRINT_FEE = 10;
+const PREORDER_WEEKS = 3;
 const SIZES = [
   ['XS', 47], ['S', 50], ['M', 53], ['L', 56],
   ['XL', 59], ['2XL', 62], ['3XL', 65]
@@ -32,7 +33,9 @@ if (art) {
   KITS.forEach((k) => {
     const o = document.createElement('option');
     o.value = k.id;
-    o.textContent = `${k.club} — ${k.line}`;
+    o.textContent = k.status === 'preorder'
+      ? `${k.club} — ${k.line} (preorder)`
+      : `${k.club} — ${k.line}`;
     kitSel.appendChild(o);
   });
   kitSel.value = kit.id;
@@ -116,10 +119,22 @@ if (art) {
     $('#total').textContent = `£${kit.price + (printed ? PRINT_FEE : 0)}`;
   }
 
+  /* Preorder kits are not held in stock, so the button and the timing line
+     have to say so before payment rather than in a confirmation email. */
+  function paintStatus() {
+    const soon = kit.status === 'preorder';
+    $('#add-label').textContent = soon ? 'Preorder' : 'Add to bag';
+    $('#stock-note').textContent = soon
+      ? `Preorder — this colourway is made to order and ships in about ${PREORDER_WEEKS} weeks.`
+      : 'In stock — ships within one working day.';
+    $('#stock-note').dataset.tone = soon ? 'soon' : 'stock';
+  }
+
   kitSel.addEventListener('change', () => {
     kit = kitById(kitSel.value);
     setAccent(kit.accent);
     addNote.textContent = '';
+    paintStatus();
     paint();
   });
 
@@ -156,7 +171,7 @@ if (art) {
     const num = numIn.value.trim();
     const bag = readBag();
     bag.push({
-      kit: kit.id, club: kit.club, size,
+      kit: kit.id, club: kit.club, size, status: kit.status,
       name: result.blank ? '' : name.toUpperCase(),
       number: result.blank ? '' : num,
       price: kit.price + (result.blank ? 0 : PRINT_FEE)
@@ -164,12 +179,16 @@ if (art) {
     localStorage.setItem(BAG, JSON.stringify(bag));
     paintBag();
 
-    addNote.textContent = result.blank
-      ? `${kit.club}, size ${size}, added.`
-      : `${kit.club}, size ${size}, ${name.toUpperCase()}${num ? ' ' + num : ''} — added.`;
+    const what = result.blank
+      ? `${kit.club}, size ${size}`
+      : `${kit.club}, size ${size}, ${name.toUpperCase()}${num ? ' ' + num : ''}`;
+    addNote.textContent = kit.status === 'preorder'
+      ? `${what} — preordered.`
+      : `${what} — added.`;
   });
 
   setAccent(kit.accent);
+  paintStatus();
   paintHint();
   paintBag();
   paint();
