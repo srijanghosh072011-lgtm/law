@@ -6,7 +6,7 @@ import { setAccent } from './app.js';
 
 const $ = (sel) => document.querySelector(sel);
 
-const PRINT_FEE = 18;
+const PRINT_FEE = 10;
 const SIZES = [
   ['XS', 47], ['S', 50], ['M', 53], ['L', 56],
   ['XL', 59], ['2XL', 62], ['3XL', 65]
