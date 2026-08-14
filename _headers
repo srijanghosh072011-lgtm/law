@@ -1,0 +1,21 @@
+# Security headers — Netlify / Cloudflare Pages format.
+# Plain GitHub Pages ignores this file; it cannot serve custom headers.
+#
+# One thing to update before launch:
+#   1. connect-src — add your form backend's host (Formspree, Web3Forms, …)
+#      once the endpoint is set in assets/js/app.js.
+# Both typefaces are self-hosted from /assets/fonts, so the policy below needs
+# no third-party hosts and the site makes no cross-origin requests at all.
+
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; manifest-src 'self'; upgrade-insecure-requests
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

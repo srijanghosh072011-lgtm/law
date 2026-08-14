@@ -1,0 +1,155 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The print room — ONZE</title>
+<meta name="description" content="Choose a colourway, set a size, and put a name and number on the back. The press screens the wording before anything is confirmed.">
+<meta name="theme-color" content="#08080a">
+<link rel="canonical" href="https://onze.store/customize.html">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ONZE">
+<meta property="og:title" content="The print room — ONZE">
+<meta property="og:description" content="Choose a colourway, set a size, and put a name and number on the back.">
+<meta property="og:url" content="https://onze.store/customize.html">
+<meta property="og:image" content="https://onze.store/assets/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The print room — ONZE">
+<meta name="twitter:description" content="Choose a colourway, set a size, and put a name and number on the back.">
+<meta name="twitter:image" content="https://onze.store/assets/img/og.png">
+
+<link rel="icon" href="assets/img/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/main.css">
+
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Primary">
+  <a class="brand" href="index.html">ONZ<span>E</span></a>
+  <ul class="nav-links">
+    <li><a href="index.html#collection">Collection</a></li>
+    <li><a href="index.html#service">Service</a></li>
+    <li><a href="index.html#questions">Questions</a></li>
+  </ul>
+  <div class="nav-right">
+    <a class="btn btn--sm btn--ghost" href="index.html#collection">
+      Bag <span class="pip" id="bag-pip" aria-hidden="true">0</span>
+      <span class="sr" id="bag-sr">0 items in bag</span>
+    </a>
+    <button class="burger" id="burger" aria-expanded="false" aria-controls="veil" aria-label="Open menu">
+      <i></i><i></i>
+    </button>
+  </div>
+</nav>
+
+<div class="veil" id="veil" data-open="false">
+  <a href="index.html#collection">Collection</a>
+  <a href="index.html#print">The print room</a>
+  <a href="index.html#service">Service</a>
+  <a href="index.html#questions">Questions</a>
+</div>
+
+<main id="main" class="shell">
+  <div class="wrap studio-head">
+    <span class="eyebrow" data-reveal>The print room</span>
+    <h1 data-reveal>Build it.</h1>
+    <p class="lede" data-reveal>
+      Pick the colourway, set the size, and decide what goes across the back.
+      Everything updates on the shirt as you type.
+    </p>
+  </div>
+
+  <div class="wrap studio">
+
+    <!-- ── PREVIEW ────────────────────────────────────────── -->
+    <div class="preview">
+      <div class="bezel">
+        <div class="core" id="preview-art"></div>
+      </div>
+      <div class="preview-foot">
+        <div>
+          <span class="meta" id="preview-line">Merengue</span>
+          <b id="preview-club">Real Madrid</b>
+        </div>
+        <span class="meta" id="preview-spec">No print</span>
+      </div>
+    </div>
+
+    <!-- ── PANEL ──────────────────────────────────────────── -->
+    <div class="panel">
+
+      <div class="bezel"><div class="core">
+        <div class="field">
+          <label for="kit">Colourway</label>
+          <select id="kit"></select>
+        </div>
+
+        <div class="field">
+          <label for="size">Size</label>
+          <div class="sizes" id="sizes" role="group" aria-label="Size"></div>
+          <p class="hint" id="size-hint">Chest, measured flat across.</p>
+        </div>
+      </div></div>
+
+      <div class="bezel"><div class="core">
+        <form id="print-form" novalidate>
+          <div class="field" id="name-field">
+            <label for="pname">Name across the back</label>
+            <div class="pair">
+              <input type="text" id="pname" name="pname" maxlength="12"
+                     placeholder="Leave blank for none" autocomplete="off"
+                     spellcheck="false" aria-describedby="verdict">
+              <input type="text" id="pnum" name="pnum" maxlength="2"
+                     placeholder="No." inputmode="numeric" autocomplete="off"
+                     aria-label="Squad number">
+            </div>
+          </div>
+
+          <p class="verdict" id="verdict" role="status" data-tone="idle">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+              <path d="M8 5v3.5M8 11h.01" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <span id="verdict-text">Twelve characters and a number from 1 to 99. Or leave both empty.</span>
+          </p>
+
+          <div class="tally">
+            <div>
+              <span class="meta">Total</span>
+              <b id="total">£145</b>
+            </div>
+            <button class="btn btn--accent" type="submit" id="add">
+              Add to bag
+              <span class="pip" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+          </div>
+          <p class="form-note" id="add-note" role="status"></p>
+        </form>
+      </div></div>
+
+      <div class="bezel"><div class="core">
+        <h2 class="house-title">House rules</h2>
+        <ul class="house">
+          <li><span></span>Slurs and hate terms are refused. There is no appeal on that one.</li>
+          <li><span></span>A rival club's name does not go on this shirt.</li>
+          <li><span></span>Neither does a player on a colourway they never wore.</li>
+          <li><span></span>Letters, spaces, hyphens and apostrophes. Numbers 1 to 99.</li>
+          <li><span></span>Printed shirts cannot be returned, so read the preview twice.</li>
+        </ul>
+      </div></div>
+
+    </div>
+  </div>
+</main>
+
+<footer class="shell">
+  <div class="wrap">
+    <div class="foot-base">
+      <span>© <span id="year">2026</span> ONZE. All rights reserved.</span>
+      <span><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span>
+      <span>Club names are used to describe colourways. ONZE is not affiliated with, endorsed by, or connected to any football club or sportswear brand.</span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="assets/js/app.js"></script>
+<script type="module" src="assets/js/customizer.js"></script>
