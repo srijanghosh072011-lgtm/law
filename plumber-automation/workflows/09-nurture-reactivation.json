@@ -1,0 +1,240 @@
+{
+  "name": "09 · Nurture & Reactivation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * *"
+            }
+          ]
+        }
+      },
+      "id": "ee130c7f05f661a6a2dd1e47395f1d3f",
+      "name": "Daily 10:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET status = 'nurture'\nWHERE status = 'rescheduling'\n  AND confirm_responded_at < NOW() - INTERVAL '7 days'\nRETURNING id AS job_id, customer_id;",
+        "options": {}
+      },
+      "id": "95d9880704d09411eedfbd5af10bcf34",
+      "name": "Sweep Abandoned Reschedules",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst rows = $input.all().map(i => i.json).filter(r => r && r.job_id);\nif (!rows.length) return [{ json: { enrolled: 0 } }];\nreturn rows.map(r => ({ json: { customerId: r.customer_id, jobId: r.job_id } }));"
+      },
+      "id": "f5b9a4e5fe1190a8fe54368ac42dd5ee",
+      "name": "Enroll Abandoned",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO nurture_enrollments (customer_id, job_id, campaign, next_touch_at)\nSELECT '{{ $json.customerId }}'::uuid, '{{ $json.jobId }}'::uuid, 'declined_reactivation', NOW() + INTERVAL '30 days'\nWHERE '{{ $json.customerId }}' <> 'undefined'\nON CONFLICT (customer_id, campaign) DO NOTHING;",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "684731edd08b6cd9891c47cdffae07fa",
+      "name": "Record Abandoned Enrollment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  n.id AS enrollment_id, n.campaign, n.touches_sent, n.enrolled_at,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.sms_consent,\n  (o.phone IS NOT NULL) AS opted_out,\n  j.job_type, j.scheduled_start AS last_job_at\nFROM nurture_enrollments n\nJOIN customers c ON c.id = n.customer_id\nLEFT JOIN jobs j ON j.id = n.job_id\nLEFT JOIN sms_optouts o ON o.phone = c.phone\nWHERE n.completed = FALSE\n  AND n.next_touch_at <= NOW()\n  -- Somebody with a live job does not need a \"come back\" email.\n  AND NOT EXISTS (\n    SELECT 1 FROM jobs active\n    WHERE active.customer_id = c.id\n      AND active.status IN ('booked','assigned','confirmed','routed','en_route')\n  )\nLIMIT 200;",
+        "options": {}
+      },
+      "id": "a5c1d84c7922ae73a3597d0b389f87d5",
+      "name": "Find Due Touches",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { guardOutboundSms } = require(LIB + '/compliance.js');\n\nconst { email, twilio, ghl } = services(env);\nconst t = templates(env);\n\n// Touch schedules, in days from enrolment. After the last one the enrolment\n// is marked complete — a campaign that never ends is a campaign that gets\n// reported as spam.\nconst SCHEDULES = {\n  post_job_maintenance:  [90, 180, 365],\n  declined_reactivation: [30, 120, 365],\n};\n\nconst out = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  if (!row || !row.enrollment_id) continue;\n\n  const schedule = SCHEDULES[row.campaign] || SCHEDULES.post_job_maintenance;\n  const touchIndex = row.touches_sent || 0;\n\n  if (touchIndex >= schedule.length) {\n    out.push({ json: { enrollmentId: row.enrollment_id, done: true, sent: false } });\n    continue;\n  }\n\n  const monthsSince = Math.round(schedule[touchIndex] / 30);\n  const mail = t.maintenanceEmail({\n    customer: { full_name: row.full_name },\n    monthsSince,\n  });\n\n  await email.send({ to: row.email, subject: mail.subject, html: mail.html });\n\n  // Email carries these campaigns; SMS is reserved for the appointment\n  // itself. Marketing texts are what get a number's reputation destroyed,\n  // and the reminder SMS is worth far more than the extra touch.\n  if (row.ghl_contact_id) {\n    await ghl.tagContact(row.ghl_contact_id, ['nurture-' + row.campaign]);\n  }\n\n  const nextIndex = touchIndex + 1;\n  const isLast = nextIndex >= schedule.length;\n  const nextDays = isLast ? null : schedule[nextIndex] - schedule[touchIndex];\n\n  out.push({ json: {\n    enrollmentId: row.enrollment_id,\n    campaign: row.campaign,\n    customer: row.full_name,\n    touchNumber: nextIndex,\n    sent: true,\n    done: isLast,\n    nextInDays: nextDays,\n  } });\n}\n\nreturn out.length ? out : [{ json: { sent: false, note: 'nobody due today' } }];"
+      },
+      "id": "0186b9b4ef936443520617a0adb62358",
+      "name": "Send Due Touches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE nurture_enrollments SET\n  touches_sent = touches_sent + 1,\n  completed = {{ Boolean($json.done) }},\n  next_touch_at = CASE\n    WHEN {{ $json.nextInDays ? 'TRUE' : 'FALSE' }}\n    THEN NOW() + ({{ $json.nextInDays || 0 }} || ' days')::interval\n    ELSE next_touch_at\n  END\nWHERE id = '{{ $json.enrollmentId }}' AND {{ Boolean($json.sent) }};",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "66e5766c57d9efafa0c3d30defcaecc8",
+      "name": "Advance Enrollment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "content": "## 09 · Nurture & Reactivation\n\n**Trigger:** daily at 10:00.\n\n**Does:** sends whichever long-cycle touch is due (90/180/365-day maintenance, or reactivation for people who declined twice), then schedules the next one.\n\nAlso sweeps up jobs abandoned mid-reschedule, which would otherwise sit in limbo forever.\n\nCovers spec steps **6** and **15**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "40b3ac4200133012259d9d7a3ef7b800",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Daily 10:00": {
+      "main": [
+        [
+          {
+            "node": "Sweep Abandoned Reschedules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sweep Abandoned Reschedules": {
+      "main": [
+        [
+          {
+            "node": "Enroll Abandoned",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enroll Abandoned": {
+      "main": [
+        [
+          {
+            "node": "Record Abandoned Enrollment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Abandoned Enrollment": {
+      "main": [
+        [
+          {
+            "node": "Find Due Touches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Due Touches": {
+      "main": [
+        [
+          {
+            "node": "Send Due Touches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Due Touches": {
+      "main": [
+        [
+          {
+            "node": "Advance Enrollment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

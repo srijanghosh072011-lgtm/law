@@ -1,0 +1,418 @@
+{
+  "name": "08 · Feedback Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "feedback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "55f6f28665623dc0c4f3de781fda60a7",
+      "name": "Feedback Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8c53b7cf0297e15f8f9f62856e4013fd"
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { classifyFeedback, modelPrompt, parseModelSentiment } = require(LIB + '/sentiment.js');\nconst { services } = require(LIB + '/services.js');\n\nconst q = $input.first().json.query ?? {};\nconst body = $input.first().json.body ?? {};\n\nconst jobId = q.job || body.job || body.jobId;\nconst rating = q.rating ?? body.rating;\nconst text = q.comment ?? body.comment ?? body.text ?? '';\n\nif (!jobId) throw new Error('feedback needs a job id');\n\nlet result = classifyFeedback({ rating, text });\n\n// Only spend a Claude call when the rating and keywords both came up empty.\nif (result.needsModel) {\n  try {\n    const { claude } = services(env);\n    const { request } = require(LIB + '/services.js');\n    const { endpoints } = require(LIB + '/config.js');\n\n    const res = await request(endpoints(env).anthropic + '/v1/messages', {\n      method: 'POST',\n      headers: {\n        'content-type': 'application/json',\n        'x-api-key': env.ANTHROPIC_API_KEY || 'mock-key',\n        'anthropic-version': '2023-06-01',\n      },\n      body: JSON.stringify({\n        model: env.ANTHROPIC_MODEL || 'claude-sonnet-5',\n        max_tokens: 10,\n        messages: [{ role: 'user', content: modelPrompt(text) }],\n      }),\n    });\n\n    const word = parseModelSentiment(res.content.map(c => c.text).join(''));\n    result = classifyFeedback({ rating: word === 'positive' ? 5 : word === 'negative' ? 2 : 3, text: '' });\n    result.source = 'claude';\n  } catch (err) {\n    // A model failure must not lose the feedback. Neutral is the safe\n    // landing: a human follow-up, and no review request.\n    console.warn('sentiment model failed, defaulting to neutral:', err.message);\n    result = classifyFeedback({ rating: 3 });\n    result.source = 'model-failed-defaulted-neutral';\n  }\n}\n\nreturn [{ json: {\n  jobId,\n  rating: rating != null ? Number(rating) : null,\n  text,\n  sentiment: result.sentiment,\n  confidence: result.confidence,\n  source: result.source,\n  actions: result.actions,\n} }];"
+      },
+      "id": "8f4a0b003a46a8a77dc4daf195292920",
+      "name": "Classify Feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE jobs SET\n  feedback_rating = {{ $json.rating ?? 'NULL' }},\n  feedback_text = {{ $json.text ? \"'\" + String($json.text).replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  feedback_sentiment = '{{ $json.sentiment }}',\n  status = 'closed'\nWHERE id = '{{ $json.jobId }}';\n\nSELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.feedback_rating, j.feedback_text,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.address_line, c.ghl_contact_id\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE j.id = '{{ $json.jobId }}';",
+        "options": {}
+      },
+      "id": "e481a2f8968173412c00ebbf2f2cdf91",
+      "name": "Save Feedback & Load Job",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst classified = $('Classify Feedback').first().json;\nconst job = $input.first().json;\nif (!job || !job.job_id) throw new Error('no job found for feedback on ' + classified.jobId);\nreturn [{ json: { ...classified, job } }];"
+      },
+      "id": "2991109be662ac48daffe1593703ffe2",
+      "name": "Merge Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "f2857e1c-b2b5-4e95-87c9-d56a8506b85b",
+                    "leftValue": "={{ $json.sentiment === 'negative' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "negative"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "562e28a9-bc9c-41c3-aaaf-e385139ab075",
+                    "leftValue": "={{ $json.sentiment === 'positive' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "positive"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "unmatched"
+        }
+      },
+      "id": "6d8b0833ded51971d3c62363275ea34c",
+      "name": "Route Sentiment",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst ctx = $input.first().json;\nconst { email, ghl } = services(env);\nconst t = templates(env);\n\nconst customer = {\n  full_name: ctx.job.full_name, phone: ctx.job.phone,\n  address_line: ctx.job.address_line,\n};\nconst job = { job_type: ctx.job.job_type, scheduled_start: ctx.job.scheduled_start };\n\nconst title = t.ownerTaskTitle({ customer, rating: ctx.rating ?? '?' });\nconst detail = t.ownerTaskDetail({ customer, job, feedbackText: ctx.text });\n\n// The owner is told immediately — an unhappy plumbing customer who hears\n// nothing for three days writes the one-star review anyway.\nawait email.send({\n  to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n  subject: 'CALL TODAY: ' + title,\n  text: detail,\n  html: '<pre style=\"font:14px ui-monospace,Menlo,monospace;white-space:pre-wrap;\">' + detail + '</pre>',\n});\n\n// And the customer hears from us, without a discount — a discount reads as\n// buying silence when what they want is the problem fixed.\nconst recovery = t.serviceRecoveryEmail({ customer });\nawait email.send({ to: ctx.job.email, subject: recovery.subject, html: recovery.html });\n\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['unhappy', 'needs-callback']);\n}\n\nreturn [{ json: { jobId: ctx.job.job_id, customerId: ctx.job.customer_id, path: 'negative', title, detail } }];"
+      },
+      "id": "98e0a44f05f2d0788bdc3ee9d612dd78",
+      "name": "Create Owner Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO owner_tasks (job_id, title, detail, priority, due_at)\nVALUES (\n  '{{ $json.jobId }}',\n  '{{ String($json.title).replace(/'/g, \"''\") }}',\n  '{{ String($json.detail).replace(/'/g, \"''\") }}',\n  'urgent',\n  NOW() + INTERVAL '1 day'\n);",
+        "options": {}
+      },
+      "id": "4bee58dafe446a821fae748306061f3e",
+      "name": "Save Owner Task",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { discountCode } = require(LIB + '/sentiment.js');\n\nconst ctx = $input.first().json;\nconst { email, ghl } = services(env);\nconst t = templates(env);\n\nconst code = discountCode(ctx.job.full_name, ctx.job.job_id);\nconst mail = t.thankYouEmail({\n  customer: { full_name: ctx.job.full_name },\n  discountCode: code,\n  discountPercent: 10,\n});\n\nawait email.send({ to: ctx.job.email, subject: mail.subject, html: mail.html });\n\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['happy', 'review-requested', code]);\n}\n\nreturn [{ json: {\n  jobId: ctx.job.job_id, customerId: ctx.job.customer_id,\n  path: 'positive', discountCode: code,\n} }];"
+      },
+      "id": "c4660719009327b2c72fe1e7281b333b",
+      "name": "Thank & Request Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\n\nconst ctx = $input.first().json;\nconst { email, ghl } = services(env);\n\n// A 3-star is a warning sign, not a crisis. No review link (it would drag\n// the average down), no urgent call — just a note the owner can act on.\nawait email.send({\n  to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n  subject: 'Lukewarm feedback from ' + ctx.job.full_name,\n  text: [\n    ctx.job.full_name + ' rated the ' + ctx.job.job_type.replace(/_/g, ' ') + ' job ' + (ctx.rating ?? '?') + '/5.',\n    ctx.text ? 'They said: \"' + ctx.text + '\"' : 'They left no comment.',\n    '',\n    'No review request was sent — a 3-star public review would pull the',\n    'average down. Worth a call if you want to understand what was missing.',\n  ].join('\\n'),\n});\n\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['neutral-feedback']);\n}\n\nreturn [{ json: { jobId: ctx.job.job_id, customerId: ctx.job.customer_id, path: 'neutral' } }];"
+      },
+      "id": "af4cc2b3a223e04f9f01d497d2663ea1",
+      "name": "Quiet Follow Up",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\n\nconst ctx = $input.first().json;\nconst { ghl } = services(env);\n\n// Spec step 15: happy or unhappy, everybody enters the long-cycle campaign.\n// Water heaters, drains and pipework all fail again eventually — this is\n// what turns one job into a customer.\nif (ctx.jobId) {\n  const row = $('Merge Context').first().json;\n  if (row.job.ghl_contact_id) {\n    await ghl.enrollInCampaign(row.job.ghl_contact_id, 'post_job_maintenance');\n  }\n}\n\nreturn [{ json: { ...ctx, nurtureEnrolled: true } }];"
+      },
+      "id": "99072647aaf53031ae5d5b86062feda9",
+      "name": "Enroll in Maintenance Nurture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO nurture_enrollments (customer_id, job_id, campaign, next_touch_at)\nVALUES ('{{ $json.customerId }}', '{{ $json.jobId }}', 'post_job_maintenance', NOW() + INTERVAL '90 days')\nON CONFLICT (customer_id, campaign) DO UPDATE SET\n  next_touch_at = EXCLUDED.next_touch_at,\n  job_id = EXCLUDED.job_id,\n  touches_sent = 0,\n  completed = FALSE;",
+        "options": {}
+      },
+      "id": "d1b67fa64298e0893a521749f1548381",
+      "name": "Record Maintenance Enrollment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2080,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \"<!doctype html><html><head><meta charset=utf-8><meta name=viewport content=\\\"width=device-width,initial-scale=1\\\"><title>Thank you</title></head><body style=\\\"font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;background:#f2f4f7;color:#14181f\\\"><div style=\\\"text-align:center;padding:32px\\\"><h1 style=\\\"font-size:22px;margin:0 0 8px\\\">Thank you</h1><p style=\\\"color:#5f6874;margin:0\\\">Your feedback has been recorded.</p></div></body></html>\" }}",
+        "options": {}
+      },
+      "id": "c411fa703b8ee89c80c09fffcd998b15",
+      "name": "Thanks Page",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 08 · Feedback Router\n\n**Trigger:** the customer clicks a star in the feedback email.\n\n**Branches:** negative → owner callback task + recovery email · neutral → quiet follow-up · positive → thank-you + discount + review link.\n\nThe review link is gated at 4+ stars. Everyone, whatever they said, enters nurture.\n\nCovers spec steps **13**, **14** and **15**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "088607ad780166ba89678b502c3d3e49",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Feedback Received": {
+      "main": [
+        [
+          {
+            "node": "Classify Feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Feedback": {
+      "main": [
+        [
+          {
+            "node": "Save Feedback & Load Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Feedback & Load Job": {
+      "main": [
+        [
+          {
+            "node": "Merge Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Context": {
+      "main": [
+        [
+          {
+            "node": "Route Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Sentiment": {
+      "main": [
+        [
+          {
+            "node": "Create Owner Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Thank & Request Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Quiet Follow Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Owner Task": {
+      "main": [
+        [
+          {
+            "node": "Save Owner Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Owner Task": {
+      "main": [
+        [
+          {
+            "node": "Enroll in Maintenance Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thank & Request Review": {
+      "main": [
+        [
+          {
+            "node": "Enroll in Maintenance Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quiet Follow Up": {
+      "main": [
+        [
+          {
+            "node": "Enroll in Maintenance Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enroll in Maintenance Nurture": {
+      "main": [
+        [
+          {
+            "node": "Record Maintenance Enrollment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Maintenance Enrollment": {
+      "main": [
+        [
+          {
+            "node": "Thanks Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

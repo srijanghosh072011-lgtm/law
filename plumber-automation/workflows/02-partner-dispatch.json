@@ -95,7 +95,7 @@
           },
           "conditions": [
             {
-              "id": "20c71f5a-b6dc-4f45-89af-f8d47e649d8c",
+              "id": "5ba7ae0f-7b65-41d7-8eb4-38b342b55f48",
               "leftValue": "={{ $json.assigned !== null }}",
               "rightValue": "",
               "operator": {

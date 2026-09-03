@@ -1,0 +1,309 @@
+{
+  "name": "07 · Job Completion",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "job-complete",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "cfd6df28ff486991fd2b52455ae18ad2",
+      "name": "Job Complete Submitted",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "f728caf3a13355dbf781c82feb9e6892"
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst payload = $input.first().json.body ?? $input.first().json;\n\nconst jobId = payload.jobId || payload.job_id;\nif (!jobId) throw new Error('job-complete needs a jobId');\n\nconst notes = String(payload.notes || '').trim();\nif (notes.length < 10) {\n  throw new Error('notes are too short to write a report from — at least a sentence, please');\n}\n\n// Photos arrive as [{ name, caption }] metadata. Storing the binaries is out\n// of scope here; captions are what the report actually needs.\nconst photos = Array.isArray(payload.photos) ? payload.photos : [];\n\nreturn [{ json: {\n  jobId,\n  notes,\n  photoCaptions: photos.map(p => p.caption || p.name).filter(Boolean),\n  photoCount: photos.length,\n  amountCents: Number(payload.amount_cents) || null,\n  lineItems: Array.isArray(payload.line_items) ? payload.line_items : [],\n} }];"
+      },
+      "id": "72757ff85558b6563a4a61b7478bbbbe",
+      "name": "Read Submission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT\n  j.id AS job_id, j.job_type, j.description, j.scheduled_start, j.timezone, j.status,\n  j.quickbooks_invoice_id, j.ghl_opportunity_id,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.address_line, c.city,\n  c.ghl_contact_id,\n  p.full_name AS partner_name\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nLEFT JOIN partners p ON p.id = j.partner_id\nWHERE j.id = '{{ $json.jobId }}';",
+        "options": {}
+      },
+      "id": "7abcd36955a3f710f8947bd80e85c967",
+      "name": "Load Job For Report",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst job = $input.first().json;\nconst sub = $('Read Submission').first().json;\n\nif (!job || !job.job_id) throw new Error('no job found for id ' + sub.jobId);\n\nconst { claude, email } = services(env);\nconst t = templates(env);\n\nconst customer = {\n  full_name: job.full_name, email: job.email,\n  address_line: job.address_line, city: job.city,\n};\n\nconst reportMarkdown = await claude.generateReport({\n  job: { job_type: job.job_type, description: job.description },\n  customer,\n  partnerName: job.partner_name,\n  notes: sub.notes,\n  photoCaptions: sub.photoCaptions,\n});\n\nconst mail = t.reportEmail({\n  customer,\n  job: { scheduled_start: job.scheduled_start },\n  reportMarkdown,\n});\nawait email.send({ to: job.email, subject: mail.subject, html: mail.html });\n\nreturn [{ json: { ...job, ...sub, reportMarkdown, reportSent: true } }];"
+      },
+      "id": "49b579dc02967f319b385f185117bf86",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE jobs\nSET status = 'completed', report_url = 'emailed'\nWHERE id = '{{ $json.job_id }}';",
+        "options": {}
+      },
+      "id": "978d3bdcd5ada21f8c15a1f1b6cad3a6",
+      "name": "Save Report",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=INSERT INTO idempotency_keys (key, job_id, step)\nVALUES ('{{ $json.job_id }}:quickbooks_invoice', '{{ $json.job_id }}'::uuid, 'quickbooks_invoice')\nON CONFLICT (key) DO NOTHING\nRETURNING key;",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "0d784bbffd8088d267f84ba91c332a5d",
+      "name": "Claim Invoice Step",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\n\nconst claimed = $input.first().json;\nconst ctx = $('Generate Report').first().json;\n\n// No row returned from the claim means another execution already invoiced\n// this job. Stop here rather than billing the customer a second time.\nif (!claimed || !claimed.key) {\n  return [{ json: { ...ctx, invoiceId: null, invoiced: false, reason: 'already invoiced' } }];\n}\n\nconst { quickbooks } = services(env);\n\n// Default pricing when the plumber didn't itemise. A client would replace\n// this with their real rate card.\nconst lines = ctx.lineItems.length\n  ? ctx.lineItems.map(l => ({ description: l.description, amount: Number(l.amount) || 0, qty: l.qty || 1 }))\n  : [{\n      description: ctx.job_type.replace(/_/g, ' ') + ' — service call',\n      amount: (ctx.amountCents || 24500) / 100,\n      qty: 1,\n    }];\n\ntry {\n  const invoice = await quickbooks.createInvoice({\n    customerRef: ctx.ghl_contact_id || ctx.customer_id,\n    customerEmail: ctx.email,\n    lines,\n  });\n  await quickbooks.sendInvoice(invoice.Id, ctx.email);\n\n  return [{ json: {\n    ...ctx,\n    invoiceId: invoice.Id,\n    invoiceNumber: invoice.DocNumber,\n    invoiceTotal: invoice.TotalAmt,\n    invoiced: true,\n  } }];\n} catch (err) {\n  // DO NOT throw here. Throwing stops the workflow, which means the next node\n  // never runs — and that next node is what releases the idempotency claim.\n  // A stuck claim would leave this job permanently marked as invoiced while\n  // no invoice exists, so the customer is never billed at all.\n  //\n  // Instead fail forward: report it, let 'Save Invoice' release the claim so\n  // a retry can work, and still send the report and feedback request. The\n  // customer got their service; the billing just needs a human.\n  console.error('invoice failed for job ' + ctx.job_id + ':', err.message);\n  return [{ json: {\n    ...ctx,\n    invoiceId: null,\n    invoiced: false,\n    invoiceError: err.message,\n  } }];\n}"
+      },
+      "id": "41c7080edcda69d7b9f21346f46775a0",
+      "name": "Create & Send Invoice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE jobs\nSET quickbooks_invoice_id = {{ $json.invoiceId ? \"'\" + $json.invoiceId + \"'\" : 'NULL' }},\n    amount_cents = {{ $json.invoiceTotal ? Math.round($json.invoiceTotal * 100) : 'NULL' }},\n    status = CASE WHEN {{ $json.invoiced }} THEN 'invoiced' ELSE status END\nWHERE id = '{{ $json.job_id }}';\n\nUPDATE idempotency_keys\nSET response = {{ JSON.stringify(JSON.stringify({ invoiceId: $json.invoiceId })) }}::jsonb\nWHERE key = '{{ $json.job_id }}:quickbooks_invoice' AND {{ Boolean($json.invoiced) }};\n\nDELETE FROM idempotency_keys\nWHERE key = '{{ $json.job_id }}:quickbooks_invoice'\n  AND response IS NULL\n  AND {{ Boolean($json.invoiceError) }};",
+        "options": {}
+      },
+      "id": "84275e104001779e999525e06d8e2239",
+      "name": "Save Invoice",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1820,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst ctx = $('Create & Send Invoice').first().json;\nconst { email, ghl } = services(env);\nconst t = templates(env);\n\nconst feedbackUrl = (env.WEBHOOK_URL || 'http://localhost:5678/').replace(/\\/$/, '') + '/webhook/feedback';\n\nconst mail = t.feedbackEmail({\n  customer: { full_name: ctx.full_name },\n  job: { id: ctx.job_id },\n  feedbackUrl,\n});\nawait email.send({ to: ctx.email, subject: mail.subject, html: mail.html });\n\nif (ctx.ghl_opportunity_id) {\n  await ghl.moveOpportunity(ctx.ghl_opportunity_id, env.GHL_STAGE_COMPLETED_ID || 'completed', 'won');\n}\n\n// A job that was done but not billed is money walking out of the door.\n// It must reach a person the same day.\nif (ctx.invoiceError) {\n  await email.send({\n    to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n    subject: 'ACTION NEEDED: job completed but not invoiced — ' + ctx.full_name,\n    text: [\n      'The report went out and the customer was asked for feedback, but the',\n      'invoice could not be raised.',\n      '',\n      'Customer: ' + ctx.full_name + ' (' + ctx.email + ')',\n      'Job:      ' + ctx.job_type + ' — ' + ctx.job_id,\n      'Error:    ' + ctx.invoiceError,\n      '',\n      'Raise this one by hand, or re-run workflow 07 for this job — the',\n      'idempotency claim has been released so a retry will go through.',\n    ].join('\\n'),\n  });\n}\n\nreturn [{ json: {\n  jobId: ctx.job_id,\n  reportSent: true,\n  invoiced: ctx.invoiced,\n  invoiceNumber: ctx.invoiceNumber || null,\n  invoiceError: ctx.invoiceError || null,\n  feedbackRequested: true,\n} }];"
+      },
+      "id": "0b8634932d04830e0750b3b56dd12fb9",
+      "name": "Send Feedback Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "bf14e40b2352840241be7d0d8f26fb66",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 07 · Job Completion\n\n**Trigger:** the plumber submits notes + photos in `web/job-complete.html`.\n\n**Does:** Claude writes a customer-facing report → emailed → QuickBooks invoice raised and sent → feedback request queued.\n\nEvery external write claims an idempotency key first, so a retry after a timeout cannot double-invoice.\n\nCovers spec steps **10**, **11** and **12**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "ca677ee54398085fa92e3e051741ae12",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Job Complete Submitted": {
+      "main": [
+        [
+          {
+            "node": "Read Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Submission": {
+      "main": [
+        [
+          {
+            "node": "Load Job For Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Job For Report": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Save Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Report": {
+      "main": [
+        [
+          {
+            "node": "Claim Invoice Step",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim Invoice Step": {
+      "main": [
+        [
+          {
+            "node": "Create & Send Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create & Send Invoice": {
+      "main": [
+        [
+          {
+            "node": "Save Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Invoice": {
+      "main": [
+        [
+          {
+            "node": "Send Feedback Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Feedback Request": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}
