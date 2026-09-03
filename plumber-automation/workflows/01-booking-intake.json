@@ -1,0 +1,437 @@
+{
+  "name": "01 · Booking Intake",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fe53e056da65b9240ea14deb98e8f289",
+      "name": "Booking Form Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "2dc3b6719c71282f74527a3c105024f7"
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { validateBooking, fullAddress } = require(LIB + '/validation.js');\n\n// The webhook body arrives under .body. Support a bare body too, so you can\n// test this node with \"Execute Node\" and pasted JSON.\nconst payload = $input.first().json.body ?? $input.first().json;\n\nconst result = validateBooking(payload, env);\n\nif (!result.ok) {\n  // Not an error — a 400. Returning data (rather than throwing) lets the\n  // branch below answer the website politely instead of the execution dying.\n  return [{ json: { ok: false, statusCode: 400, errors: result.errors } }];\n}\n\nreturn [{ json: {\n  ok: true,\n  customer: result.value.customer,\n  job: result.value.job,\n  geocodeAddress: fullAddress(result.value.customer),\n} }];"
+      },
+      "id": "9d00db35f2080f01ebe31fe91a505e0f",
+      "name": "Validate & Normalise",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fa798c86-6e7e-4f78-9c33-6b367f57a834",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3e01710770799aaee03678821444f0c6",
+      "name": "Valid Booking?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, errors: $json.errors }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "99bebfc568e872e776517c3986fe5904",
+      "name": "Reject 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { maps } = services(env);\n\nconst item = $input.first().json;\n\n// Geocoding failure must not lose the booking — the job is still valid, it\n// just can't be routed until someone fixes the address. Dispatch handles the\n// null coordinates case.\nlet coords = { lat: null, lng: null };\ntry {\n  const found = await maps.geocode(item.geocodeAddress);\n  coords = { lat: found.lat, lng: found.lng };\n} catch (err) {\n  console.warn('geocode failed for \"' + item.geocodeAddress + '\":', err.message);\n}\n\nreturn [{ json: { ...item, customer: { ...item.customer, ...coords } } }];"
+      },
+      "id": "98b8dfc11196a03a15c0a78124eed57e",
+      "name": "Geocode Address",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO customers (\n  full_name, email, phone, address_line, city, state, postal_code,\n  lat, lng, sms_consent, sms_consent_at, sms_consent_source\n) VALUES (\n  '{{ $json.customer.full_name.replace(/'/g, \"''\") }}',\n  '{{ $json.customer.email }}',\n  '{{ $json.customer.phone }}',\n  '{{ $json.customer.address_line.replace(/'/g, \"''\") }}',\n  {{ $json.customer.city ? \"'\" + $json.customer.city.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  {{ $json.customer.state ? \"'\" + $json.customer.state + \"'\" : 'NULL' }},\n  {{ $json.customer.postal_code ? \"'\" + $json.customer.postal_code + \"'\" : 'NULL' }},\n  {{ $json.customer.lat ?? 'NULL' }},\n  {{ $json.customer.lng ?? 'NULL' }},\n  TRUE, NOW(), '{{ $json.customer.sms_consent_source }}'\n)\nON CONFLICT (ghl_contact_id) DO NOTHING\nRETURNING *;",
+        "options": {}
+      },
+      "id": "1d88234788ad838d716d460e3a7e3e18",
+      "name": "Upsert Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst inserted = $input.first().json;\nconst booking = $('Geocode Address').first().json;\n\nif (inserted && inserted.id) {\n  return [{ json: { ...booking, customerRow: inserted } }];\n}\nreturn [{ json: { ...booking, customerRow: null } }];"
+      },
+      "id": "d9398475b261659e9deebcac053306cc",
+      "name": "Resolve Customer Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM customers\nWHERE phone = '{{ $json.customer.phone }}'\nORDER BY created_at DESC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "91c6de6b4273a109ca52d67376f90f50",
+      "name": "Find Existing Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst booking = $('Geocode Address').first().json;\nconst fromInsert = $('Resolve Customer Row').first().json.customerRow;\nconst fromLookup = $input.first().json;\n\nconst customerRow = fromInsert || (fromLookup && fromLookup.id ? fromLookup : null);\nif (!customerRow) {\n  throw new Error('could not create or find the customer record');\n}\n\nreturn [{ json: { ...booking, customerId: customerRow.id, customerRow } }];"
+      },
+      "id": "af2da4b02c45c85a52f1ff5b260c516c",
+      "name": "Merge Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO jobs (\n  customer_id, job_type, description, urgency,\n  scheduled_start, scheduled_end, timezone, status\n) VALUES (\n  '{{ $json.customerId }}',\n  '{{ $json.job.job_type }}',\n  {{ $json.job.description ? \"'\" + $json.job.description.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  '{{ $json.job.urgency }}',\n  '{{ $json.job.scheduled_start }}',\n  '{{ $json.job.scheduled_end }}',\n  '{{ $json.job.timezone }}',\n  'booked'\n)\nRETURNING *;",
+        "options": {}
+      },
+      "id": "a066f070d44d2ed53f11a4eb01eb3edc",
+      "name": "Insert Job",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2080,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst jobRow = $input.first().json;\nconst booking = $('Merge Customer').first().json;\nconst customer = { ...booking.customerRow, ...booking.customer };\nconst job = { ...jobRow, ...booking.job, id: jobRow.id };\n\nconst { ghl, twilio, email } = services(env);\nconst t = templates(env);\n\n// --- Step 2: into the CRM ---\nconst contact = await ghl.upsertContact(customer);\nconst opportunity = await ghl.createOpportunity({\n  contactId: contact.id,\n  name: job.job_type.replace(/_/g, ' ') + ' — ' + customer.full_name,\n  stageId: env.GHL_STAGE_BOOKED_ID,\n});\nawait ghl.tagContact(contact.id, ['booked-online', job.job_type, job.urgency]);\n\n// --- Step 1: confirm to the customer ---\nconst mail = t.bookingConfirmationEmail({ customer, job });\nawait email.send({ to: customer.email, subject: mail.subject, html: mail.html });\nawait twilio.sendSms({ to: customer.phone, body: t.bookingConfirmationSms({ customer, job }) });\n\nreturn [{ json: {\n  jobId: job.id,\n  customerId: customer.id,\n  ghlContactId: contact.id,\n  ghlOpportunityId: opportunity.id,\n  job, customer,\n} }];"
+      },
+      "id": "095994b2ef2e2b798c9f81da85836fae",
+      "name": "CRM + Confirmations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET ghl_opportunity_id = '{{ $json.ghlOpportunityId }}'\nWHERE id = '{{ $json.jobId }}';\nUPDATE customers SET ghl_contact_id = '{{ $json.ghlContactId }}'\nWHERE id = '{{ $json.customerId }}';",
+        "options": {}
+      },
+      "id": "92b18a80b5d95fcbd837a86df852e34a",
+      "name": "Save CRM Ids",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2600,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "02 · Partner Dispatch",
+          "mode": "list",
+          "cachedResultName": "02 · Partner Dispatch"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "e6b2ed211192b467b8f2f6303df1f46d",
+      "name": "Dispatch to Partner",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, jobId: $('CRM + Confirmations').first().json.jobId }) }}",
+        "options": {}
+      },
+      "id": "3eb51d13d1ff6f231caf779f578a74b4",
+      "name": "Respond 201",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 01 · Booking Intake\n\n**Trigger:** the website booking form POSTs here.\n\n**Does:** validate → geocode → save customer + job → create the GoHighLevel contact and opportunity → send confirmation email + SMS → hand off to *02 · Partner Dispatch*.\n\nA bad payload returns 400 with a list of what to fix, so the website form can show the customer.\n\nCovers spec steps **1** and **2**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "6eb7f77e1ec116ff227cb4b8591eb5e7",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Booking Form Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Normalise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Normalise": {
+      "main": [
+        [
+          {
+            "node": "Valid Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Booking?": {
+      "main": [
+        [
+          {
+            "node": "Geocode Address",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reject 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geocode Address": {
+      "main": [
+        [
+          {
+            "node": "Upsert Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Customer": {
+      "main": [
+        [
+          {
+            "node": "Resolve Customer Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Customer Row": {
+      "main": [
+        [
+          {
+            "node": "Find Existing Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Existing Customer": {
+      "main": [
+        [
+          {
+            "node": "Merge Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Customer": {
+      "main": [
+        [
+          {
+            "node": "Insert Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Job": {
+      "main": [
+        [
+          {
+            "node": "CRM + Confirmations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM + Confirmations": {
+      "main": [
+        [
+          {
+            "node": "Save CRM Ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save CRM Ids": {
+      "main": [
+        [
+          {
+            "node": "Dispatch to Partner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch to Partner": {
+      "main": [
+        [
+          {
+            "node": "Respond 201",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

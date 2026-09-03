@@ -1,0 +1,16 @@
+{
+  "full_name": "Dana Reyes",
+  "email": "dana.reyes@example.com",
+  "phone": "+15125559876",
+  "address_line": "4412 Red Oak Lane",
+  "city": "Austin",
+  "state": "TX",
+  "postal_code": "78745",
+  "job_type": "water_heater",
+  "urgency": "standard",
+  "description": "No hot water since yesterday morning. Heater is about 11 years old and there is a small puddle underneath it.",
+  "preferred_date": "2026-09-04",
+  "preferred_window": "08:00-12:00",
+  "sms_consent": true,
+  "sms_consent_source": "booking_form_v1"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "plumber-booking-automation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "End-to-end booking, dispatch, routing, reporting and follow-up automation for a plumbing business, running on self-hosted n8n.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "mock": "node mock/server.js",
+    "demo": "./scripts/demo.sh",
+    "up": "docker compose up -d",
+    "down": "docker compose down",
+    "reset": "docker compose down -v && docker compose up -d",
+    "logs": "docker compose logs -f n8n mock",
+    "build:workflows": "node scripts/build-workflows.js"
+  }
+}

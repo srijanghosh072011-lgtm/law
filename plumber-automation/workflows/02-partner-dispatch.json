@@ -1,0 +1,319 @@
+{
+  "name": "02 · Partner Dispatch",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "caac6ac5800b8f7483d24590b0f376d1",
+      "name": "When Called by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst input = $input.first().json;\n\n// Accept a jobId from the calling workflow, or from a manual run.\nconst jobId = input.jobId || input.job_id || (input.job && input.job.id);\nif (!jobId) throw new Error('02 · Partner Dispatch needs a jobId');\n\nreturn [{ json: { jobId } }];"
+      },
+      "id": "fdc2b9556a5555981499536cb664ceda",
+      "name": "Read Job Id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  j.id            AS job_id,\n  j.job_type,\n  j.urgency,\n  j.scheduled_start,\n  j.timezone,\n  j.status,\n  c.id            AS customer_id,\n  c.full_name,\n  c.phone,\n  c.email,\n  c.address_line,\n  c.city,\n  c.lat,\n  c.lng\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE j.id = '{{ $json.jobId }}';",
+        "options": {}
+      },
+      "id": "83aaed57768f8c6cbae29d3bbd926394",
+      "name": "Load Job & Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  p.*,\n  COALESCE(load.jobs_today, 0)::int AS jobs_today\nFROM partners p\nLEFT JOIN (\n  SELECT partner_id, COUNT(*) AS jobs_today\n  FROM jobs\n  WHERE partner_id IS NOT NULL\n    AND status NOT IN ('cancelled', 'nurture')\n    AND (scheduled_start AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n        = (TIMESTAMPTZ '{{ $('Load Job & Customer').first().json.scheduled_start }}' AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n  GROUP BY partner_id\n) load ON load.partner_id = p.id\nWHERE p.active = TRUE;",
+        "options": {}
+      },
+      "id": "00b2cee7a7733959476f863258dfcb14",
+      "name": "Load Partners With Load",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { scorePartners } = require(LIB + '/partner-scoring.js');\n\nconst job = $('Load Job & Customer').first().json;\nconst partners = $input.all().map(i => i.json).filter(p => p && p.id);\n\n// No coordinates means geocoding failed upstream. Ranking on nulls would\n// silently produce nonsense, so stop and flag it for a human instead.\nif (job.lat == null || job.lng == null) {\n  return [{ json: {\n    ...job,\n    assigned: null,\n    unassignedReason: 'address could not be geocoded — check the address on this booking',\n    ranked: [], rejected: [],\n  } }];\n}\n\nconst result = scorePartners(\n  { lat: job.lat, lng: job.lng, job_type: job.job_type, urgency: job.urgency },\n  partners\n);\n\nif (!result.assigned) {\n  return [{ json: {\n    ...job,\n    assigned: null,\n    unassignedReason: 'no partner passed the filters',\n    ranked: [],\n    rejected: result.rejected.map(r => ({ name: r.partner.full_name, reason: r.reason })),\n  } }];\n}\n\nreturn [{ json: {\n  ...job,\n  assigned: result.assigned.partner,\n  score: result.assigned.score,\n  distanceKm: result.assigned.distanceKm,\n  reasons: result.assigned.reasons,\n  runnersUp: result.ranked.slice(1, 4).map(r => ({ name: r.partner.full_name, score: r.score })),\n  rejected: result.rejected.map(r => ({ name: r.partner.full_name, reason: r.reason })),\n} }];"
+      },
+      "id": "774380fea1f9e9f125553dcfabbba7c5",
+      "name": "Score & Choose Partner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "17756b9a-9939-4d07-9b52-349dc663e117",
+              "leftValue": "={{ $json.assigned !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "18d54d2655eac721800c922958ad3bef",
+      "name": "Partner Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs\nSET partner_id = '{{ $json.assigned.id }}', status = 'assigned'\nWHERE id = '{{ $json.job_id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "f2e5c0ec7a624c40ed2d7924613a02d2",
+      "name": "Assign Partner",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1560,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst chosen = $('Score & Choose Partner').first().json;\nconst { twilio, email } = services(env);\nconst t = templates(env);\n\nconst customer = {\n  full_name: chosen.full_name,\n  phone: chosen.phone,\n  address_line: chosen.address_line,\n  city: chosen.city,\n};\nconst job = {\n  job_type: chosen.job_type,\n  urgency: chosen.urgency,\n  scheduled_start: chosen.scheduled_start,\n};\n\nawait twilio.sendSms({\n  to: chosen.assigned.phone,\n  body: t.partnerDispatchSms({ partner: chosen.assigned, customer, job }),\n});\n\nreturn [{ json: {\n  jobId: chosen.job_id,\n  assignedTo: chosen.assigned.full_name,\n  score: chosen.score,\n  distanceKm: chosen.distanceKm,\n  why: chosen.reasons,\n  runnersUp: chosen.runnersUp,\n} }];"
+      },
+      "id": "7ca6856944ffed43dd6197f877561e57",
+      "name": "Notify Partner",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst job = $input.first().json;\nconst { email, twilio } = services(env);\n\nconst detail = [\n  'A booking could not be automatically assigned.',\n  '',\n  'Customer: ' + job.full_name + ' (' + job.phone + ')',\n  'Address:  ' + job.address_line + (job.city ? ', ' + job.city : ''),\n  'Job:      ' + job.job_type + ' (' + job.urgency + ')',\n  'When:     ' + job.scheduled_start,\n  '',\n  'Reason: ' + job.unassignedReason,\n  '',\n  job.rejected && job.rejected.length\n    ? 'Partners considered:\\n' + job.rejected.map(r => '  - ' + r.name + ': ' + r.reason).join('\\n')\n    : '',\n  '',\n  'This job needs assigning by hand.',\n].join('\\n');\n\nawait email.send({\n  to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n  subject: 'ACTION NEEDED: unassigned job for ' + job.full_name,\n  text: detail,\n  html: '<pre style=\"font:14px ui-monospace,Menlo,monospace;white-space:pre-wrap;\">' + detail + '</pre>',\n});\n\nif (job.urgency === 'emergency') {\n  await twilio.sendSms({\n    to: env.BUSINESS_PHONE,\n    body: 'URGENT: emergency job for ' + job.full_name + ' could not be auto-assigned. Check email.',\n  });\n}\n\nreturn [{ json: { jobId: job.job_id, assigned: false, reason: job.unassignedReason } }];"
+      },
+      "id": "c8f7bca78223f47f6fc3099cc0d3c11e",
+      "name": "Alert Owner — Unassigned",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET status = 'needs_assignment'\nWHERE id = '{{ $json.jobId }}';",
+        "options": {}
+      },
+      "id": "ebbaadd1a324148764c6e7ad1635044d",
+      "name": "Flag Needs Attention",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1820,
+        190
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "content": "## 02 · Partner Dispatch\n\n**Trigger:** called by *01 · Booking Intake* (or run manually with a jobId).\n\n**Does:** loads every partner with their job count for that day, ranks them on distance + skills + capacity (`lib/partner-scoring.js`), assigns the winner and texts them the job.\n\nIf nobody qualifies it alerts the owner instead of failing silently — that path matters more than the happy one.\n\nCovers spec step **3**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "3c091d64770222dc05fe95ee16789524",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "When Called by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Read Job Id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Job Id": {
+      "main": [
+        [
+          {
+            "node": "Load Job & Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Job & Customer": {
+      "main": [
+        [
+          {
+            "node": "Load Partners With Load",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Partners With Load": {
+      "main": [
+        [
+          {
+            "node": "Score & Choose Partner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score & Choose Partner": {
+      "main": [
+        [
+          {
+            "node": "Partner Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Partner Found?": {
+      "main": [
+        [
+          {
+            "node": "Assign Partner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Owner — Unassigned",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Partner": {
+      "main": [
+        [
+          {
+            "node": "Notify Partner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Owner — Unassigned": {
+      "main": [
+        [
+          {
+            "node": "Flag Needs Attention",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

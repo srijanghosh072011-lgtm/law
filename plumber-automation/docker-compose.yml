@@ -1,0 +1,113 @@
+# Plumber Booking Automation — local stack
+#
+#   docker compose up -d
+#
+#   n8n editor  ->  http://localhost:5678
+#   mock APIs   ->  http://localhost:4000  (timeline at /__timeline)
+#
+# Everything here is free. n8n Community Edition has no operation limits.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: plumber-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-n8n}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-n8n_local_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-plumber}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Runs once, the first time the volume is created. To re-apply after
+      # editing the schema: docker compose down -v && docker compose up -d
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-n8n} -d ${POSTGRES_DB:-plumber}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: plumber-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-plumber}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-n8n_local_dev}
+
+      # Where webhooks tell the outside world to reach us. For real inbound
+      # webhooks (Twilio) you need a public URL — see docs/GOING-LIVE.md.
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Chicago}
+      TZ: ${BUSINESS_TIMEZONE:-America/Chicago}
+
+      # Lets Code nodes `require` our lib/*.js and use built-in modules.
+      NODE_FUNCTION_ALLOW_BUILTIN: "crypto,util"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "*"
+
+      # Business config, read by Code nodes via $env.
+      MOCK_MODE: ${MOCK_MODE:-true}
+      MOCK_BASE_URL: ${MOCK_BASE_URL:-http://mock:4000}
+      BUSINESS_NAME: ${BUSINESS_NAME:-Rapid Response Plumbing}
+      BUSINESS_PHONE: ${BUSINESS_PHONE:-+15125550100}
+      BUSINESS_TIMEZONE: ${BUSINESS_TIMEZONE:-America/Chicago}
+      BOOKING_URL: ${BOOKING_URL:-http://localhost:8080/booking.html}
+      GOOGLE_REVIEW_URL: ${GOOGLE_REVIEW_URL:-https://g.page/r/EXAMPLE/review}
+      QUIET_HOURS_START: ${QUIET_HOURS_START:-21}
+      QUIET_HOURS_END: ${QUIET_HOURS_END:-8}
+
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Shared logic the Code nodes require() — see lib/README.md.
+      - ./lib:/home/node/lib:ro
+      - ./workflows:/home/node/workflows:ro
+    ports:
+      - "5678:5678"
+
+  # Stands in for GoHighLevel, Twilio, QuickBooks, Google Maps and Claude so the
+  # whole automation runs with zero paid accounts. Set MOCK_MODE=false in .env
+  # to point the workflows at the real APIs instead.
+  mock:
+    image: node:22-alpine
+    container_name: plumber-mock
+    restart: unless-stopped
+    working_dir: /app
+    command: node mock/server.js
+    environment:
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-n8n}:${POSTGRES_PASSWORD:-n8n_local_dev}@postgres:5432/${POSTGRES_DB:-plumber}
+    volumes:
+      - ./:/app:ro
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Serves the three field-facing pages (booking form, on-my-way, job complete).
+  web:
+    image: node:22-alpine
+    container_name: plumber-web
+    restart: unless-stopped
+    working_dir: /app
+    command: npx --yes http-server /app/web -p 8080 -c-1 --cors
+    volumes:
+      - ./:/app:ro
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+  n8n_data:
