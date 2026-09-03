@@ -80,7 +80,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "f2857e1c-b2b5-4e95-87c9-d56a8506b85b",
+                    "id": "ddbdcc72-3894-46f0-bd43-fa3e9ddf9b2f",
                     "leftValue": "={{ $json.sentiment === 'negative' }}",
                     "rightValue": "",
                     "operator": {
@@ -105,7 +105,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "562e28a9-bc9c-41c3-aaaf-e385139ab075",
+                    "id": "bb430c8a-0a4b-4473-82ea-1c224dcfbc02",
                     "leftValue": "={{ $json.sentiment === 'positive' }}",
                     "rightValue": "",
                     "operator": {

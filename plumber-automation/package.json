@@ -10,7 +10,7 @@
   "scripts": {
     "test": "node --test",
     "mock": "node mock/server.js",
-    "demo": "./scripts/demo.sh",
+    "demo": "node scripts/demo.js",
     "up": "docker compose up -d",
     "down": "docker compose down",
     "reset": "docker compose down -v && docker compose up -d",
