@@ -42,7 +42,7 @@
           },
           "conditions": [
             {
-              "id": "fa798c86-6e7e-4f78-9c33-6b367f57a834",
+              "id": "e8e105a6-be0f-4507-9772-29a27b4af3e6",
               "leftValue": "={{ $json.ok }}",
               "rightValue": "",
               "operator": {

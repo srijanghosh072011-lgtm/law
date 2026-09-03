@@ -1,0 +1,696 @@
+{
+  "name": "04 · SMS Inbound Router",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sms-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d67e6b344d19339936f4573bb7206057",
+      "name": "Twilio Inbound SMS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "2a9beea991025b50cd49e1d98817e87d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { parseSmsReply } = require(LIB + '/sms-parser.js');\nconst { normalisePhone } = require(LIB + '/validation.js');\n\n// Twilio posts form-encoded; n8n exposes it under .body.\nconst payload = $input.first().json.body ?? $input.first().json;\nconst from = normalisePhone(payload.From || payload.from);\nconst body = payload.Body ?? payload.body ?? '';\n\nif (!from) {\n  return [{ json: { error: 'inbound SMS with no usable From number', intent: 'IGNORE' } }];\n}\n\nconst parsed = parseSmsReply(body);\n\nreturn [{ json: {\n  from,\n  body,\n  intent: parsed.intent,\n  confidence: parsed.confidence,\n  reason: parsed.reason,\n  messageSid: payload.MessageSid || null,\n} }];"
+      },
+      "id": "2b1e26602eb24a9bcebd20489ceb81dd",
+      "name": "Parse Intent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone, j.status,\n  j.decline_count, j.ghl_opportunity_id,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.ghl_contact_id\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE c.phone = '{{ $json.from }}'\n  AND j.status IN ('assigned', 'booked', 'unconfirmed', 'rescheduling')\nORDER BY\n  (j.confirm_sent_at IS NOT NULL AND j.confirm_response IS NULL) DESC,\n  j.scheduled_start ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "ff0ff65c7808192502639f72c76b0c5d",
+      "name": "Find Awaiting Job",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { decideRoute } = require(LIB + '/reply-routing.js');\n\nconst reply = $('Parse Intent').first().json;\nconst job = $input.first().json;\nconst hasJob = Boolean(job && job.job_id);\n\n// The branch decision lives in lib/reply-routing.js so it is unit-tested\n// rather than buried in this node.\nconst decision = decideRoute({\n  intent: reply.intent,\n  hasJob,\n  declineCount: hasJob ? (job.decline_count || 0) : 0,\n});\n\nreturn [{ json: {\n  ...reply,\n  hasJob,\n  job: hasJob ? job : null,\n  route: decision.route,\n  routeWhy: decision.why,\n} }];"
+      },
+      "id": "48b14d480c65b6176bc3781fcbaa3b9b",
+      "name": "Merge Reply & Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2f8243cc-bf8c-4a07-8077-ccd6002cbe03",
+                    "leftValue": "={{ $json.route === 'YES' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "yes"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "973cca3f-b371-4301-b042-8c6112d20c30",
+                    "leftValue": "={{ $json.route === 'NO_FIRST' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "no_first"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "55118563-9bf1-40b3-9c3c-a83e6046b2c5",
+                    "leftValue": "={{ $json.route === 'NO_AGAIN' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "no_again"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6cf42251-06da-47e2-8ddc-16f385d12b39",
+                    "leftValue": "={{ $json.route === 'STOP' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "stop"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c77fa7e4-7a4a-42fd-b968-f480bb74c677",
+                    "leftValue": "={{ $json.route === 'HELP' }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "unmatched"
+        }
+      },
+      "id": "896a8d7ffe528ca5ea624ca3af23597b",
+      "name": "Route Reply",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs\nSET status = 'confirmed', confirm_response = 'YES', confirm_responded_at = NOW()\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "691a257388565ec69f07f772596c3dc9",
+      "name": "Mark Confirmed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst ctx = $('Merge Reply & Job').first().json;\nconst { twilio, ghl } = services(env);\nconst t = templates(env);\n\nawait twilio.sendSms({\n  to: ctx.from,\n  body: t.confirmedSms({ job: { scheduled_start: ctx.job.scheduled_start } }),\n});\n\n// Move the CRM card so the owner's pipeline reflects reality.\nif (ctx.job.ghl_opportunity_id) {\n  await ghl.moveOpportunity(ctx.job.ghl_opportunity_id, env.GHL_STAGE_CONFIRMED_ID || 'confirmed');\n}\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['confirmed-appointment']);\n}\n\nreturn [{ json: { jobId: ctx.job.job_id, outcome: 'confirmed' } }];"
+      },
+      "id": "9b554a6712c7b5837ff9f3669fdd2af9",
+      "name": "Send Confirmed Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs\nSET status = 'rescheduling', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "4680b9550f405d3739d256be2dcb02d6",
+      "name": "Mark Rescheduling",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        190
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { guardOutboundSms } = require(LIB + '/compliance.js');\n\nconst ctx = $('Merge Reply & Job').first().json;\nconst { twilio, email, ghl } = services(env);\nconst t = templates(env);\n\nconst body = t.rescheduleSms();\n// A reply to their own message is transactional, so it is not quiet-hours\n// blocked — someone texting \"no\" at 10pm should get the link straight away.\nconst gate = guardOutboundSms({\n  template: 'booking_confirmation', body, optedOut: false, consented: true,\n}, env);\n\nif (gate.allow) {\n  await twilio.sendSms({ to: ctx.from, body });\n}\n\nconst mail = t.rescheduleEmail({ customer: { full_name: ctx.job.full_name } });\nawait email.send({ to: ctx.job.email, subject: mail.subject, html: mail.html });\n\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['rescheduling']);\n}\n\nreturn [{ json: { jobId: ctx.job.job_id, outcome: 'rescheduling' } }];"
+      },
+      "id": "92372d8a4c63fb66a50a24c77e6cc50f",
+      "name": "Send Reschedule Link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs\nSET status = 'nurture', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "8ceb83d3c149137a657a6fa8985f4d2c",
+      "name": "Mark Nurture",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        380
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst ctx = $('Merge Reply & Job').first().json;\nconst { twilio, ghl } = services(env);\nconst t = templates(env);\n\n// They have now declined twice. Stop chasing this booking — one short,\n// friendly close, then long-cycle nurture. Chasing a third time is how a\n// business earns spam complaints.\nawait twilio.sendSms({ to: ctx.from, body: t.nurtureSms() });\n\nif (ctx.job.ghl_contact_id) {\n  await ghl.tagContact(ctx.job.ghl_contact_id, ['nurture', 'declined-twice']);\n  await ghl.enrollInCampaign(ctx.job.ghl_contact_id, 'declined_reactivation');\n}\n\nreturn [{ json: { jobId: ctx.job.job_id, customerId: ctx.job.customer_id, outcome: 'nurture' } }];"
+      },
+      "id": "fef07ee479b750f13ece3276ee73b00a",
+      "name": "Enroll in Nurture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO nurture_enrollments (customer_id, job_id, campaign, next_touch_at)\nVALUES ('{{ $json.customerId }}', '{{ $json.jobId }}', 'declined_reactivation', NOW() + INTERVAL '30 days')\nON CONFLICT (customer_id, campaign) DO UPDATE SET next_touch_at = EXCLUDED.next_touch_at;",
+        "options": {}
+      },
+      "id": "4705401563b438aa254470f6c2a9dc38",
+      "name": "Record Nurture Enrollment",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1820,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO sms_optouts (phone, reason)\nVALUES ('{{ $json.from }}', 'STOP')\nON CONFLICT (phone) DO NOTHING;",
+        "options": {}
+      },
+      "id": "a9173be6dee0e5c118a8272b18937f7f",
+      "name": "Record Opt-Out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        570
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { stopConfirmationText } = require(LIB + '/compliance.js');\n\nconst ctx = $('Merge Reply & Job').first().json;\nconst { twilio } = services(env);\n\n// The opt-out confirmation is the one message you are still required to send\n// after a STOP. Exactly one — never a follow-up.\nawait twilio.sendSms({ to: ctx.from, body: stopConfirmationText(env) });\n\nreturn [{ json: { phone: ctx.from, outcome: 'opted_out' } }];"
+      },
+      "id": "5039e7f8d0fcc91af21f5d3c5669d716",
+      "name": "Confirm Opt-Out",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        570
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { helpText } = require(LIB + '/compliance.js');\n\nconst ctx = $('Merge Reply & Job').first().json;\nconst { twilio } = services(env);\n\nawait twilio.sendSms({ to: ctx.from, body: helpText(env) });\nreturn [{ json: { phone: ctx.from, outcome: 'help_sent' } }];"
+      },
+      "id": "177083bfb880b0224560de0c2c40ffa1",
+      "name": "Send Help Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst ctx = $input.first().json;\nconst { email } = services(env);\n\nconst detail = [\n  'A customer replied to an appointment text and the system could not tell',\n  'whether it was a yes or a no.',\n  '',\n  'From:    ' + ctx.from,\n  'Message: \"' + ctx.body + '\"',\n  'Why:     ' + ctx.reason,\n  '',\n  ctx.hasJob\n    ? 'Job:     ' + ctx.job.job_type + ' on ' + ctx.job.scheduled_start + ' for ' + ctx.job.full_name\n    : 'No open appointment matched this number.',\n  '',\n  'Reply to the customer directly. The appointment has not been changed.',\n].join('\\n');\n\nawait email.send({\n  to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n  subject: 'Needs a human: unclear reply from ' + ctx.from,\n  text: detail,\n  html: '<pre style=\"font:14px ui-monospace,Menlo,monospace;white-space:pre-wrap;\">' + detail + '</pre>',\n});\n\nreturn [{ json: { outcome: 'escalated', from: ctx.from, reason: ctx.reason } }];"
+      },
+      "id": "0c6fecc957bf87ef4a5aae337d6a8794",
+      "name": "Escalate to Human",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        950
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body, provider_id)\nVALUES (\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.job_id + \"'\" : 'NULL' }},\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.customer_id + \"'\" : 'NULL' }},\n  'sms', 'inbound',\n  '{{ $('Parse Intent').first().json.intent }}',\n  '{{ $('Parse Intent').first().json.from }}',\n  {{ JSON.stringify($('Parse Intent').first().json.body) }},\n  {{ $('Parse Intent').first().json.messageSid ? \"'\" + $('Parse Intent').first().json.messageSid + \"'\" : 'NULL' }}\n);",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "1cbbfafba9baf25a2e3d43d74b113c05",
+      "name": "Log Inbound",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2080,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ \"\" }}",
+        "options": {}
+      },
+      "id": "69e8f098b9a7caa4a22e693135f23d94",
+      "name": "Empty 200 to Twilio",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 04 · SMS Inbound Router\n\n**Trigger:** Twilio posts every inbound SMS here.\n\n**Branches:** YES → confirmed · NO (1st) → reschedule · NO (2nd) → nurture · STOP → opt out · HELP → carrier reply · UNCLEAR → a human.\n\nThe UNCLEAR branch is the point of the design: \"yes but can we move it\" is never collapsed into a confirmation.\n\nCovers spec steps **5**, **6** and **7**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "3cef689c1c771617b3c8f17c3a818c09",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Twilio Inbound SMS": {
+      "main": [
+        [
+          {
+            "node": "Parse Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Intent": {
+      "main": [
+        [
+          {
+            "node": "Find Awaiting Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Awaiting Job": {
+      "main": [
+        [
+          {
+            "node": "Merge Reply & Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Reply & Job": {
+      "main": [
+        [
+          {
+            "node": "Route Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Reply": {
+      "main": [
+        [
+          {
+            "node": "Mark Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Rescheduling",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Opt-Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Help Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Escalate to Human",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Confirmed": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmed Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Rescheduling": {
+      "main": [
+        [
+          {
+            "node": "Send Reschedule Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Nurture": {
+      "main": [
+        [
+          {
+            "node": "Enroll in Nurture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enroll in Nurture": {
+      "main": [
+        [
+          {
+            "node": "Record Nurture Enrollment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Opt-Out": {
+      "main": [
+        [
+          {
+            "node": "Confirm Opt-Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmed Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reschedule Link": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Nurture Enrollment": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm Opt-Out": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Help Text": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate to Human": {
+      "main": [
+        [
+          {
+            "node": "Log Inbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Inbound": {
+      "main": [
+        [
+          {
+            "node": "Empty 200 to Twilio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

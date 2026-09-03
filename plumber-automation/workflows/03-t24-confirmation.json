@@ -1,0 +1,332 @@
+{
+  "name": "03 · T-24 Confirmation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "ac303c20fc03e43c3c5025600e3e0e5f",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone, j.status,\n  c.id AS customer_id, c.full_name, c.phone, c.email, c.sms_consent,\n  (o.phone IS NOT NULL) AS opted_out\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nLEFT JOIN sms_optouts o ON o.phone = c.phone\nWHERE j.status IN ('assigned', 'booked')\n  AND j.confirm_sent_at IS NULL\n  AND j.scheduled_start BETWEEN NOW() + INTERVAL '23 hours' AND NOW() + INTERVAL '25 hours';",
+        "options": {}
+      },
+      "id": "927bea7fe849406660bfdf3b7ab0e4d4",
+      "name": "Find Jobs ~24h Out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { guardOutboundSms } = require(LIB + '/compliance.js');\n\nconst { twilio } = services(env);\nconst t = templates(env);\nconst out = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  if (!row || !row.job_id) continue;\n\n  const customer = { full_name: row.full_name, phone: row.phone, email: row.email };\n  const job = { job_type: row.job_type, scheduled_start: row.scheduled_start };\n  const body = t.t24ConfirmSms({ customer, job });\n\n  // Never send without asking the guard first.\n  const gate = guardOutboundSms({\n    template: 't24_confirm',\n    body,\n    optedOut: row.opted_out,\n    consented: row.sms_consent,\n  }, env);\n\n  if (!gate.allow) {\n    // 'defer' leaves confirm_sent_at NULL, so the next hourly run picks it up\n    // again once quiet hours have passed. 'drop' is terminal.\n    out.push({ json: { jobId: row.job_id, sent: false, action: gate.action, reason: gate.reason } });\n    continue;\n  }\n\n  await twilio.sendSms({ to: row.phone, body });\n  out.push({ json: {\n    jobId: row.job_id, customerId: row.customer_id, sent: true, action: 'send',\n    segments: gate.cost.segments, body,\n  } });\n}\n\nreturn out.length ? out : [{ json: { sent: false, action: 'none', reason: 'no jobs due' } }];"
+      },
+      "id": "23ba22ec747117945cdf58534e8acf60",
+      "name": "Send Confirmations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET confirm_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.sent }};",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "2620dbbee0cd544b35cc2882b0b0c2dc",
+      "name": "Mark Confirmation Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body)\nSELECT '{{ $json.jobId }}', '{{ $json.customerId }}', 'sms', 'outbound', 't24_confirm', c.phone, {{ JSON.stringify($json.body || '') }}\nFROM customers c WHERE c.id = '{{ $json.customerId }}'\nAND {{ $json.sent }};",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "b147771b12f73a9faefa6d3ef6ba8865",
+      "name": "Log Outbound",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone,\n  c.id AS customer_id, c.full_name, c.phone, c.sms_consent,\n  (o.phone IS NOT NULL) AS opted_out\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nLEFT JOIN sms_optouts o ON o.phone = c.phone\nWHERE j.status IN ('assigned', 'booked')\n  AND j.confirm_sent_at IS NOT NULL\n  AND j.confirm_response IS NULL\n  AND j.nudge_sent_at IS NULL\n  AND j.scheduled_start BETWEEN NOW() + INTERVAL '11 hours' AND NOW() + INTERVAL '13 hours';",
+        "options": {}
+      },
+      "id": "af3b61b3a8b4a5c4b2114d3f778a72db",
+      "name": "Find Silent ~12h Out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { guardOutboundSms } = require(LIB + '/compliance.js');\n\nconst { twilio } = services(env);\nconst t = templates(env);\nconst out = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  if (!row || !row.job_id) continue;\n\n  const body = t.t24NudgeSms({ job: { scheduled_start: row.scheduled_start } });\n  const gate = guardOutboundSms({\n    template: 't24_nudge', body, optedOut: row.opted_out, consented: row.sms_consent,\n  }, env);\n\n  if (!gate.allow) {\n    out.push({ json: { jobId: row.job_id, nudged: false, reason: gate.reason } });\n    continue;\n  }\n\n  await twilio.sendSms({ to: row.phone, body });\n  out.push({ json: { jobId: row.job_id, nudged: true } });\n}\n\nreturn out.length ? out : [{ json: { nudged: false, reason: 'nobody to nudge' } }];"
+      },
+      "id": "c688bc9c121790843b398a9bde7207be",
+      "name": "Send Nudges",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET nudge_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.nudged }};",
+        "options": {
+          "queryBatching": "single"
+        }
+      },
+      "id": "af95a0e8ff02771e794899c63e526871",
+      "name": "Mark Nudged",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1820,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE jobs SET status = 'unconfirmed'\nWHERE status IN ('assigned', 'booked')\n  AND confirm_sent_at IS NOT NULL\n  AND confirm_response IS NULL\n  AND scheduled_start BETWEEN NOW() + INTERVAL '2 hours' AND NOW() + INTERVAL '4 hours'\nRETURNING id AS job_id, scheduled_start, customer_id;",
+        "options": {}
+      },
+      "id": "77acde54d90cdbfcc2164ccedb9b05a8",
+      "name": "Find Still Silent ~3h Out",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2080,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { email } = services(env);\n\nconst rows = $input.all().map(i => i.json).filter(r => r && r.job_id);\nif (!rows.length) return [{ json: { alerted: 0 } }];\n\nconst lines = rows.map(r => '  - job ' + r.job_id + ' at ' + r.scheduled_start);\nawait email.send({\n  to: env.BUSINESS_EMAIL || 'dispatch@example-plumbing.com',\n  subject: rows.length + ' appointment(s) today never confirmed',\n  text: [\n    'These customers did not reply to the confirmation text or the nudge:',\n    '',\n    ...lines,\n    '',\n    'The jobs are still on the route. Worth a phone call before driving out.',\n  ].join('\\n'),\n});\n\nreturn [{ json: { alerted: rows.length } }];"
+      },
+      "id": "aa5b8f6a8f55d292fb3c8bc69e87af22",
+      "name": "Alert Plumber — Unconfirmed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 03 · T-24 Confirmation\n\n**Trigger:** hourly cron (not a per-job timer — those die on restart).\n\n**Does three sweeps each run:**\n1. ~24h out, never asked → yes/no SMS\n2. ~12h out, asked, silent → one nudge\n3. ~3h out, still silent → mark unconfirmed and tell the plumber\n\nQuiet-hours-blocked messages are deferred to the next allowed hour, not dropped.\n\nCovers spec step **4**, plus the silence path the original spec didn't have.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "92e65c2e890707a648aab7f76191caf2",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Find Jobs ~24h Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Jobs ~24h Out": {
+      "main": [
+        [
+          {
+            "node": "Send Confirmations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Confirmations": {
+      "main": [
+        [
+          {
+            "node": "Mark Confirmation Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Confirmation Sent": {
+      "main": [
+        [
+          {
+            "node": "Log Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Outbound": {
+      "main": [
+        [
+          {
+            "node": "Find Silent ~12h Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Silent ~12h Out": {
+      "main": [
+        [
+          {
+            "node": "Send Nudges",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Nudges": {
+      "main": [
+        [
+          {
+            "node": "Mark Nudged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Nudged": {
+      "main": [
+        [
+          {
+            "node": "Find Still Silent ~3h Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Still Silent ~3h Out": {
+      "main": [
+        [
+          {
+            "node": "Alert Plumber — Unconfirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}
