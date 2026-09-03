@@ -1,0 +1,170 @@
+{
+  "name": "05 · Build Tomorrow Route",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "1ea5ace3fad8a3073692984abb99d54d",
+      "name": "Every Evening 18:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone, j.urgency,\n  p.id AS partner_id, p.full_name AS partner_name, p.email AS partner_email,\n  p.phone AS partner_phone, p.base_lat, p.base_lng,\n  c.id AS customer_id, c.full_name AS customer_name, c.phone AS customer_phone,\n  c.address_line, c.city, c.lat, c.lng,\n  CASE j.job_type\n    WHEN 'drain_cleaning'   THEN 45\n    WHEN 'leak_repair'      THEN 60\n    WHEN 'water_heater'     THEN 150\n    WHEN 'tankless_install' THEN 300\n    WHEN 'sewer_line'       THEN 300\n    WHEN 'repipe'           THEN 480\n    WHEN 'backflow_test'    THEN 30\n    ELSE 60\n  END AS service_minutes\nFROM jobs j\nJOIN partners p  ON p.id = j.partner_id\nJOIN customers c ON c.id = j.customer_id\nWHERE j.status IN ('confirmed', 'unconfirmed')\n  AND (j.scheduled_start AT TIME ZONE j.timezone)::date\n      = ((NOW() AT TIME ZONE '{{ $env.BUSINESS_TIMEZONE || 'America/Chicago' }}')::date + 1)\nORDER BY p.id, j.scheduled_start;",
+        "options": {}
+      },
+      "id": "d37b40f14edcddacfd5a4a01e731cafb",
+      "name": "Load Tomorrow Confirmed Jobs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        260,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { buildRoute, savingsVersusBookedOrder } = require(LIB + '/route-optimizer.js');\n\nconst rows = $input.all().map(i => i.json).filter(r => r && r.job_id);\nif (!rows.length) return [{ json: { routes: [], note: 'no confirmed jobs tomorrow' } }];\n\n// One route per partner — they each drive their own day.\nconst byPartner = new Map();\nfor (const row of rows) {\n  if (!byPartner.has(row.partner_id)) byPartner.set(row.partner_id, []);\n  byPartner.get(row.partner_id).push(row);\n}\n\nconst out = [];\n\nfor (const [partnerId, jobs] of byPartner) {\n  const first = jobs[0];\n  const origin = { lat: first.base_lat, lng: first.base_lng };\n\n  // Leave base 30 minutes before the earliest promised window.\n  const earliest = Math.min(...jobs.map(j => new Date(j.scheduled_start).getTime()));\n  const startTime = new Date(earliest - 30 * 60000).toISOString();\n\n  const route = buildRoute({ origin, stops: jobs, startTime });\n  const savings = savingsVersusBookedOrder({ origin, stops: jobs, optimisedStops: route.stops });\n\n  out.push({ json: {\n    partnerId,\n    partnerName: first.partner_name,\n    partnerEmail: first.partner_email,\n    origin,\n    stops: route.stops,\n    skipped: route.skipped,\n    totalDistanceKm: route.totalDistanceKm,\n    totalDriveMinutes: route.totalDriveMinutes,\n    savings,\n  } }];\n}\n\nreturn out;"
+      },
+      "id": "3eced20b5b3d568139b53e22add6f48f",
+      "name": "Optimise Each Partner Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=DELETE FROM route_stops\nWHERE partner_id = '{{ $json.partnerId }}'\n  AND route_date = (CURRENT_DATE + 1);\n\nINSERT INTO route_stops (job_id, partner_id, route_date, stop_order, eta, drive_seconds, distance_meters)\nSELECT\n  (s->>'job_id')::uuid,\n  '{{ $json.partnerId }}'::uuid,\n  (CURRENT_DATE + 1),\n  (s->>'stop_order')::int,\n  (s->>'eta')::timestamptz,\n  (s->>'drive_seconds')::int,\n  (s->>'distance_meters')::int\nFROM jsonb_array_elements({{ JSON.stringify(JSON.stringify($json.stops)) }}::jsonb) AS s;\n\nUPDATE jobs SET status = 'routed'\nWHERE id IN (\n  SELECT (s->>'job_id')::uuid\n  FROM jsonb_array_elements({{ JSON.stringify(JSON.stringify($json.stops)) }}::jsonb) AS s\n) AND status = 'confirmed';",
+        "options": {}
+      },
+      "id": "0f63ab27b06d042cb0728d2bea20ed6c",
+      "name": "Clear & Save Route Stops",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\n\nconst route = $('Optimise Each Partner Route').first().json;\nif (!route.stops || !route.stops.length) return [{ json: { emailed: false } }];\n\nconst { email } = services(env);\nconst t = templates(env);\nconst tz = env.BUSINESS_TIMEZONE || 'America/Chicago';\n\nconst rows = route.stops.map(s => `\n  <tr>\n    <td style=\"padding:10px 8px;border-bottom:1px solid #e6e8eb;font-weight:700;\">${s.stop_order}</td>\n    <td style=\"padding:10px 8px;border-bottom:1px solid #e6e8eb;\">\n      <strong>${t.helpers.when(s.eta, tz, { weekday: undefined })}</strong><br>\n      <span style=\"color:#5b6472;\">${s.customer_name} — ${s.job_type.replace(/_/g,' ')}</span>\n    </td>\n    <td style=\"padding:10px 8px;border-bottom:1px solid #e6e8eb;\">\n      ${s.address_line}${s.city ? ', ' + s.city : ''}<br>\n      <span style=\"color:#5b6472;font-size:12px;\">${s.customer_phone} · ${Math.round(s.drive_seconds/60)} min drive</span>\n    </td>\n  </tr>`).join('');\n\n// One tap opens the whole day in Google Maps, in order.\nconst mapsUrl = 'https://www.google.com/maps/dir/' +\n  [route.origin, ...route.stops, route.origin]\n    .map(p => (p.lat + ',' + p.lng))\n    .join('/');\n\nconst skippedWarning = route.skipped && route.skipped.length\n  ? '<p style=\"color:#b42318;\"><strong>' + route.skipped.length + ' job(s) could not be placed</strong> — their address did not geocode. Check them by hand.</p>'\n  : '';\n\nawait email.send({\n  to: route.partnerEmail,\n  subject: 'Your route for tomorrow — ' + route.stops.length + ' stops',\n  html: `<div style=\"font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:640px;\">\n    <h2 style=\"margin:0 0 4px;\">Tomorrow: ${route.stops.length} stops</h2>\n    <p style=\"color:#5b6472;margin:0 0 18px;\">\n      ${route.totalDistanceKm} km · about ${route.totalDriveMinutes} min driving.\n      Optimising saved ${route.savings.savedKm} km (${route.savings.savedPercent}%) versus driving them in booking order.\n    </p>\n    ${skippedWarning}\n    <p><a href=\"${mapsUrl}\" style=\"background:#1a56db;color:#fff;padding:11px 20px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block;\">Open the whole route in Google Maps</a></p>\n    <table style=\"width:100%;border-collapse:collapse;font-size:14px;margin-top:18px;\">${rows}</table>\n    <p style=\"color:#5b6472;font-size:13px;margin-top:20px;\">\n      Tap \"On my way\" on each job as you leave the previous one and the customer gets an automatic ETA text.\n    </p>\n  </div>`,\n});\n\nreturn [{ json: {\n  emailed: true,\n  partner: route.partnerName,\n  stops: route.stops.length,\n  savedKm: route.savings.savedKm,\n  savedPercent: route.savings.savedPercent,\n} }];"
+      },
+      "id": "2d08403c1839286573593a4fc1d8052b",
+      "name": "Email Route to Plumber",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 05 · Build Tomorrow Route\n\n**Trigger:** nightly at 18:00 (also runnable by hand).\n\n**Does:** every confirmed job for tomorrow, per partner → grouped by promised window → driving minimised inside each window → saved to `route_stops` → emailed to the plumber with a Google Maps link.\n\nPromised windows are hard constraints: a convenient afternoon job is never pulled into the morning.\n\nCovers spec step **8**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "991c7c49341cac74caf3ee27d82af633",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "Every Evening 18:00": {
+      "main": [
+        [
+          {
+            "node": "Load Tomorrow Confirmed Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Tomorrow Confirmed Jobs": {
+      "main": [
+        [
+          {
+            "node": "Optimise Each Partner Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Optimise Each Partner Route": {
+      "main": [
+        [
+          {
+            "node": "Clear & Save Route Stops",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear & Save Route Stops": {
+      "main": [
+        [
+          {
+            "node": "Email Route to Plumber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

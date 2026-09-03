@@ -59,7 +59,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs SET confirm_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.sent }};",
+        "query": "=UPDATE jobs SET confirm_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.sent }};",
         "options": {
           "queryBatching": "single"
         }
@@ -83,7 +83,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body)\nSELECT '{{ $json.jobId }}', '{{ $json.customerId }}', 'sms', 'outbound', 't24_confirm', c.phone, {{ JSON.stringify($json.body || '') }}\nFROM customers c WHERE c.id = '{{ $json.customerId }}'\nAND {{ $json.sent }};",
+        "query": "=INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body)\nSELECT '{{ $json.jobId }}', '{{ $json.customerId }}', 'sms', 'outbound', 't24_confirm', c.phone, {{ JSON.stringify($json.body || '') }}\nFROM customers c WHERE c.id = '{{ $json.customerId }}'\nAND {{ $json.sent }};",
         "options": {
           "queryBatching": "single"
         }
@@ -142,7 +142,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs SET nudge_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.nudged }};",
+        "query": "=UPDATE jobs SET nudge_sent_at = NOW()\nWHERE id = '{{ $json.jobId }}' AND {{ $json.nudged }};",
         "options": {
           "queryBatching": "single"
         }

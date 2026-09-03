@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Today's Route — Rapid Response Plumbing</title>
+<style>
+  /*
+    Built for one situation: a plumber standing beside a van, one hand free,
+    in sunlight. So: big tap targets, high contrast, no navigation, no menus.
+    Everything above the fold is the next stop.
+  */
+  :root {
+    --ink: #14181f; --muted: #5f6874; --line: #dfe3e8;
+    --bg: #f2f4f7; --card: #fff; --accent: #1a56db;
+    --done: #067647; --warn: #b54708;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#e8eaed; --muted:#9aa3af; --line:#2c323b; --bg:#14181f; --card:#1b2029; --accent:#4d82f3; --done:#47cd89; --warn:#f79009; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header { max-width: 560px; margin: 0 auto 16px; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 14px; }
+  main { max-width: 560px; margin: 0 auto; }
+  .stop {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; margin-bottom: 12px;
+  }
+  .stop.next { border-color: var(--accent); border-width: 2px; }
+  .stop.done { opacity: .55; }
+  .top { display: flex; gap: 12px; align-items: flex-start; }
+  .num {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 15px;
+    display: grid; place-items: center;
+  }
+  .stop.done .num { background: var(--done); }
+  .who { font-weight: 650; font-size: 17px; }
+  .what { color: var(--muted); font-size: 14px; margin-top: 1px; }
+  .addr { margin: 12px 0 0; font-size: 15px; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  a.btn, button {
+    display: block; width: 100%; padding: 15px 12px; font: inherit; font-size: 15px;
+    font-weight: 650; text-align: center; text-decoration: none;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:disabled { opacity: .5; }
+  button.sent { background: var(--done); border-color: var(--done); color: #fff; }
+  .status { margin-top: 10px; font-size: 14px; padding: 10px 12px; border-radius: 8px; display: none; }
+  .status.show { display: block; }
+  .status.ok { background: color-mix(in srgb, var(--done) 14%, transparent); }
+  .status.err { background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .config {
+    max-width: 560px; margin: 24px auto 0; padding-top: 16px;
+    border-top: 1px solid var(--line); font-size: 12px; color: var(--muted);
+  }
+  .config input {
+    width: 100%; margin-top: 5px; padding: 8px 10px;
+    font: 12px ui-monospace, Menlo, monospace; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Today's route</h1>
+  <div class="sub" id="summary">Loading…</div>
+</header>
+
+<main id="stops"></main>
+
+<div class="config">
+  n8n base URL
+  <input id="base" value="http://localhost:5678">
+  <div style="margin-top:8px">
+    Demo data is used when the route endpoint isn't reachable, so you can see how this behaves before wiring it up.
+  </div>
+</div>
+
+<script>
+/*
+  Two things this page does, and nothing else:
+    1. show the stops in optimised order
+    2. fire workflow 06 when the plumber taps "On my way"
+
+  Geolocation is requested but never required — a denied prompt just means the
+  ETA is measured from the partner's base instead of their exact position.
+*/
+
+const baseInput = document.getElementById('base');
+const stopsEl = document.getElementById('stops');
+const summaryEl = document.getElementById('summary');
+
+// Stand-in data so the page is demoable before n8n is wired up.
+const DEMO_STOPS = [
+  { job_id: 'demo-1', stop_order: 1, customer_name: 'Dana Reyes', job_type: 'water_heater',
+    address_line: '4412 Red Oak Lane', city: 'Austin', customer_phone: '+15125559876',
+    eta: new Date(Date.now() + 35 * 60000).toISOString(), lat: 30.2672, lng: -97.7431 },
+  { job_id: 'demo-2', stop_order: 2, customer_name: 'Marcus Hale', job_type: 'drain_cleaning',
+    address_line: '907 Bluebonnet Dr', city: 'Austin', customer_phone: '+15125553311',
+    eta: new Date(Date.now() + 160 * 60000).toISOString(), lat: 30.2900, lng: -97.7200 },
+  { job_id: 'demo-3', stop_order: 3, customer_name: 'Priya Anand', job_type: 'leak_repair',
+    address_line: '2210 Shoal Creek Blvd', city: 'Austin', customer_phone: '+15125557788',
+    eta: new Date(Date.now() + 300 * 60000).toISOString(), lat: 30.3100, lng: -97.7500 },
+];
+
+let position = null;
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    (p) => { position = { lat: p.coords.latitude, lng: p.coords.longitude }; },
+    () => { /* denied is fine — we fall back to the partner's base */ },
+    { timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+function render(stops, isDemo) {
+  summaryEl.textContent =
+    stops.length + (stops.length === 1 ? ' stop' : ' stops') +
+    (isDemo ? ' · demo data' : '');
+
+  if (!stops.length) {
+    stopsEl.innerHTML = '<div class="empty">Nothing scheduled today.</div>';
+    return;
+  }
+
+  stopsEl.innerHTML = stops.map((s, i) => `
+    <div class="stop ${i === 0 ? 'next' : ''}" id="stop-${s.job_id}">
+      <div class="top">
+        <div class="num">${s.stop_order}</div>
+        <div>
+          <div class="who">${esc(s.customer_name)}</div>
+          <div class="what">${esc(String(s.job_type).replace(/_/g, ' '))} · arriving ${time(s.eta)}</div>
+        </div>
+      </div>
+      <p class="addr">${esc(s.address_line)}${s.city ? ', ' + esc(s.city) : ''}</p>
+      <div class="meta">${esc(s.customer_phone || '')}</div>
+      <div class="actions">
+        <a class="btn" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(s.address_line + ' ' + (s.city || ''))}" target="_blank" rel="noopener">Navigate</a>
+        <button class="primary" data-job="${esc(s.job_id)}">On my way</button>
+      </div>
+      <div class="status" id="status-${s.job_id}"></div>
+    </div>
+  `).join('');
+
+  stopsEl.querySelectorAll('button[data-job]').forEach((btn) => {
+    btn.addEventListener('click', () => onMyWay(btn, btn.dataset.job));
+  });
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function onMyWay(btn, jobId) {
+  const status = document.getElementById('status-' + jobId);
+  btn.disabled = true;
+  btn.textContent = 'Texting…';
+
+  try {
+    const res = await fetch(baseInput.value.replace(/\/$/, '') + '/webhook/on-my-way', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jobId, ...(position || {}) }),
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (body.sent) {
+      btn.classList.add('sent');
+      btn.textContent = 'Customer notified';
+      status.className = 'status show ok';
+      status.textContent = 'Texted — about ' + body.etaMinutes + ' minutes out.';
+      document.getElementById('stop-' + jobId).classList.add('done');
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'On my way';
+      status.className = 'status show err';
+      status.textContent = body.reason || 'Not sent.';
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'On my way';
+    status.className = 'status show err';
+    status.textContent = "Couldn't reach the server — " + err.message;
+  }
+}
+
+async function load() {
+  try {
+    const res = await fetch(baseInput.value.replace(/\/$/, '') + '/webhook/todays-route');
+    if (!res.ok) throw new Error('no route endpoint');
+    const body = await res.json();
+    render(body.stops || [], false);
+  } catch {
+    render(DEMO_STOPS, true);
+  }
+}
+
+baseInput.addEventListener('change', load);
+load();
+</script>
+</body>
+</html>

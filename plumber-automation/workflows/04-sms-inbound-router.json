@@ -34,7 +34,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone, j.status,\n  j.decline_count, j.ghl_opportunity_id,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.ghl_contact_id\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE c.phone = '{{ $json.from }}'\n  AND j.status IN ('assigned', 'booked', 'unconfirmed', 'rescheduling')\nORDER BY\n  (j.confirm_sent_at IS NOT NULL AND j.confirm_response IS NULL) DESC,\n  j.scheduled_start ASC\nLIMIT 1;",
+        "query": "=SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.timezone, j.status,\n  j.decline_count, j.ghl_opportunity_id,\n  c.id AS customer_id, c.full_name, c.email, c.phone, c.ghl_contact_id\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE c.phone = '{{ $json.from }}'\n  AND j.status IN ('assigned', 'booked', 'unconfirmed', 'rescheduling')\nORDER BY\n  (j.confirm_sent_at IS NOT NULL AND j.confirm_response IS NULL) DESC,\n  j.scheduled_start ASC\nLIMIT 1;",
         "options": {}
       },
       "id": "ff0ff65c7808192502639f72c76b0c5d",
@@ -80,7 +80,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "2f8243cc-bf8c-4a07-8077-ccd6002cbe03",
+                    "id": "71ecf63e-05a4-41af-ab8f-bfced0f2d63f",
                     "leftValue": "={{ $json.route === 'YES' }}",
                     "rightValue": "",
                     "operator": {
@@ -105,7 +105,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "973cca3f-b371-4301-b042-8c6112d20c30",
+                    "id": "dcaf93b1-f466-4141-a90d-af14d0d07bb5",
                     "leftValue": "={{ $json.route === 'NO_FIRST' }}",
                     "rightValue": "",
                     "operator": {
@@ -130,7 +130,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "55118563-9bf1-40b3-9c3c-a83e6046b2c5",
+                    "id": "3cd0b008-df32-48e8-905e-87d09dc99259",
                     "leftValue": "={{ $json.route === 'NO_AGAIN' }}",
                     "rightValue": "",
                     "operator": {
@@ -155,7 +155,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "6cf42251-06da-47e2-8ddc-16f385d12b39",
+                    "id": "86433870-6c10-4693-823f-f1a5fad39fcc",
                     "leftValue": "={{ $json.route === 'STOP' }}",
                     "rightValue": "",
                     "operator": {
@@ -180,7 +180,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "c77fa7e4-7a4a-42fd-b968-f480bb74c677",
+                    "id": "309e5491-4bf1-45b3-9b3d-0858d3e7e22f",
                     "leftValue": "={{ $json.route === 'HELP' }}",
                     "rightValue": "",
                     "operator": {
@@ -215,7 +215,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs\nSET status = 'confirmed', confirm_response = 'YES', confirm_responded_at = NOW()\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "query": "=UPDATE jobs\nSET status = 'confirmed', confirm_response = 'YES', confirm_responded_at = NOW()\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
         "options": {}
       },
       "id": "691a257388565ec69f07f772596c3dc9",
@@ -250,7 +250,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs\nSET status = 'rescheduling', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "query": "=UPDATE jobs\nSET status = 'rescheduling', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
         "options": {}
       },
       "id": "4680b9550f405d3739d256be2dcb02d6",
@@ -285,7 +285,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs\nSET status = 'nurture', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
+        "query": "=UPDATE jobs\nSET status = 'nurture', confirm_response = 'NO', confirm_responded_at = NOW(),\n    decline_count = decline_count + 1, partner_id = NULL\nWHERE id = '{{ $json.job.job_id }}'\nRETURNING *;",
         "options": {}
       },
       "id": "8ceb83d3c149137a657a6fa8985f4d2c",
@@ -320,7 +320,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO nurture_enrollments (customer_id, job_id, campaign, next_touch_at)\nVALUES ('{{ $json.customerId }}', '{{ $json.jobId }}', 'declined_reactivation', NOW() + INTERVAL '30 days')\nON CONFLICT (customer_id, campaign) DO UPDATE SET next_touch_at = EXCLUDED.next_touch_at;",
+        "query": "=INSERT INTO nurture_enrollments (customer_id, job_id, campaign, next_touch_at)\nVALUES ('{{ $json.customerId }}', '{{ $json.jobId }}', 'declined_reactivation', NOW() + INTERVAL '30 days')\nON CONFLICT (customer_id, campaign) DO UPDATE SET next_touch_at = EXCLUDED.next_touch_at;",
         "options": {}
       },
       "id": "4705401563b438aa254470f6c2a9dc38",
@@ -342,7 +342,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO sms_optouts (phone, reason)\nVALUES ('{{ $json.from }}', 'STOP')\nON CONFLICT (phone) DO NOTHING;",
+        "query": "=INSERT INTO sms_optouts (phone, reason)\nVALUES ('{{ $json.from }}', 'STOP')\nON CONFLICT (phone) DO NOTHING;",
         "options": {}
       },
       "id": "a9173be6dee0e5c118a8272b18937f7f",
@@ -403,7 +403,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body, provider_id)\nVALUES (\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.job_id + \"'\" : 'NULL' }},\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.customer_id + \"'\" : 'NULL' }},\n  'sms', 'inbound',\n  '{{ $('Parse Intent').first().json.intent }}',\n  '{{ $('Parse Intent').first().json.from }}',\n  {{ JSON.stringify($('Parse Intent').first().json.body) }},\n  {{ $('Parse Intent').first().json.messageSid ? \"'\" + $('Parse Intent').first().json.messageSid + \"'\" : 'NULL' }}\n);",
+        "query": "=INSERT INTO messages (job_id, customer_id, channel, direction, template, to_addr, body, provider_id)\nVALUES (\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.job_id + \"'\" : 'NULL' }},\n  {{ $('Merge Reply & Job').first().json.hasJob ? \"'\" + $('Merge Reply & Job').first().json.job.customer_id + \"'\" : 'NULL' }},\n  'sms', 'inbound',\n  '{{ $('Parse Intent').first().json.intent }}',\n  '{{ $('Parse Intent').first().json.from }}',\n  {{ JSON.stringify($('Parse Intent').first().json.body) }},\n  {{ $('Parse Intent').first().json.messageSid ? \"'\" + $('Parse Intent').first().json.messageSid + \"'\" : 'NULL' }}\n);",
         "options": {
           "queryBatching": "single"
         }

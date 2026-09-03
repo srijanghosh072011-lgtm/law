@@ -42,7 +42,7 @@
           },
           "conditions": [
             {
-              "id": "e8e105a6-be0f-4507-9772-29a27b4af3e6",
+              "id": "06a4f6ba-5592-49ce-aaa1-04de14fc43e6",
               "leftValue": "={{ $json.ok }}",
               "rightValue": "",
               "operator": {
@@ -99,7 +99,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO customers (\n  full_name, email, phone, address_line, city, state, postal_code,\n  lat, lng, sms_consent, sms_consent_at, sms_consent_source\n) VALUES (\n  '{{ $json.customer.full_name.replace(/'/g, \"''\") }}',\n  '{{ $json.customer.email }}',\n  '{{ $json.customer.phone }}',\n  '{{ $json.customer.address_line.replace(/'/g, \"''\") }}',\n  {{ $json.customer.city ? \"'\" + $json.customer.city.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  {{ $json.customer.state ? \"'\" + $json.customer.state + \"'\" : 'NULL' }},\n  {{ $json.customer.postal_code ? \"'\" + $json.customer.postal_code + \"'\" : 'NULL' }},\n  {{ $json.customer.lat ?? 'NULL' }},\n  {{ $json.customer.lng ?? 'NULL' }},\n  TRUE, NOW(), '{{ $json.customer.sms_consent_source }}'\n)\nON CONFLICT (ghl_contact_id) DO NOTHING\nRETURNING *;",
+        "query": "=INSERT INTO customers (\n  full_name, email, phone, address_line, city, state, postal_code,\n  lat, lng, sms_consent, sms_consent_at, sms_consent_source\n) VALUES (\n  '{{ $json.customer.full_name.replace(/'/g, \"''\") }}',\n  '{{ $json.customer.email }}',\n  '{{ $json.customer.phone }}',\n  '{{ $json.customer.address_line.replace(/'/g, \"''\") }}',\n  {{ $json.customer.city ? \"'\" + $json.customer.city.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  {{ $json.customer.state ? \"'\" + $json.customer.state + \"'\" : 'NULL' }},\n  {{ $json.customer.postal_code ? \"'\" + $json.customer.postal_code + \"'\" : 'NULL' }},\n  {{ $json.customer.lat ?? 'NULL' }},\n  {{ $json.customer.lng ?? 'NULL' }},\n  TRUE, NOW(), '{{ $json.customer.sms_consent_source }}'\n)\nON CONFLICT (ghl_contact_id) DO NOTHING\nRETURNING *;",
         "options": {}
       },
       "id": "1d88234788ad838d716d460e3a7e3e18",
@@ -134,7 +134,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT * FROM customers\nWHERE phone = '{{ $json.customer.phone }}'\nORDER BY created_at DESC\nLIMIT 1;",
+        "query": "=SELECT * FROM customers\nWHERE phone = '{{ $json.customer.phone }}'\nORDER BY created_at DESC\nLIMIT 1;",
         "options": {}
       },
       "id": "91c6de6b4273a109ca52d67376f90f50",
@@ -169,7 +169,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO jobs (\n  customer_id, job_type, description, urgency,\n  scheduled_start, scheduled_end, timezone, status\n) VALUES (\n  '{{ $json.customerId }}',\n  '{{ $json.job.job_type }}',\n  {{ $json.job.description ? \"'\" + $json.job.description.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  '{{ $json.job.urgency }}',\n  '{{ $json.job.scheduled_start }}',\n  '{{ $json.job.scheduled_end }}',\n  '{{ $json.job.timezone }}',\n  'booked'\n)\nRETURNING *;",
+        "query": "=INSERT INTO jobs (\n  customer_id, job_type, description, urgency,\n  scheduled_start, scheduled_end, timezone, status\n) VALUES (\n  '{{ $json.customerId }}',\n  '{{ $json.job.job_type }}',\n  {{ $json.job.description ? \"'\" + $json.job.description.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n  '{{ $json.job.urgency }}',\n  '{{ $json.job.scheduled_start }}',\n  '{{ $json.job.scheduled_end }}',\n  '{{ $json.job.timezone }}',\n  'booked'\n)\nRETURNING *;",
         "options": {}
       },
       "id": "a066f070d44d2ed53f11a4eb01eb3edc",
@@ -204,7 +204,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs SET ghl_opportunity_id = '{{ $json.ghlOpportunityId }}'\nWHERE id = '{{ $json.jobId }}';\nUPDATE customers SET ghl_contact_id = '{{ $json.ghlContactId }}'\nWHERE id = '{{ $json.customerId }}';",
+        "query": "=UPDATE jobs SET ghl_opportunity_id = '{{ $json.ghlOpportunityId }}'\nWHERE id = '{{ $json.jobId }}';\nUPDATE customers SET ghl_contact_id = '{{ $json.ghlContactId }}'\nWHERE id = '{{ $json.customerId }}';",
         "options": {}
       },
       "id": "92b18a80b5d95fcbd837a86df852e34a",

@@ -52,10 +52,18 @@ const code = (name, jsCode) =>
 const codeEachItem = (name, jsCode) =>
   node(name, 'n8n-nodes-base.code', { mode: 'runOnceForEachItem', jsCode }, { typeVersion: 2 });
 
+/**
+ * A raw SQL node.
+ *
+ * NOTE ON THE `=` PREFIX: n8n treats a parameter value as a literal string
+ * unless it begins with "=", which marks it as an expression. Without that,
+ * every `{{ $json.x }}` in a query would be sent to Postgres verbatim. So any
+ * query containing an expression gets the prefix automatically.
+ */
 const postgres = (name, query, opts = {}) =>
   node(name, 'n8n-nodes-base.postgres', {
     operation: 'executeQuery',
-    query,
+    query: query.includes('{{') ? `=${query}` : query,
     options: opts.alwaysOutputData ? { queryBatching: 'single' } : {},
   }, {
     typeVersion: 2.5,

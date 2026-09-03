@@ -1,0 +1,270 @@
+{
+  "name": "06 · On My Way",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "on-my-way",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f30ae2aaafe6795b9cbe1b8d7c85c6c1",
+      "name": "On My Way Tapped",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5318f41df325721d2fb09447c1b14c64"
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst payload = $input.first().json.body ?? $input.first().json;\nconst jobId = payload.jobId || payload.job_id;\nif (!jobId) throw new Error('on-my-way needs a jobId');\n\n// The browser's geolocation, if the plumber allowed it. Falls back to the\n// partner's base, which still gives a usable ETA.\nconst lat = Number(payload.lat);\nconst lng = Number(payload.lng);\n\nreturn [{ json: {\n  jobId,\n  from: (Number.isFinite(lat) && Number.isFinite(lng)) ? { lat, lng } : null,\n} }];"
+      },
+      "id": "62dad28438d9c3a5c427a7996ac220ca",
+      "name": "Read Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT\n  j.id AS job_id, j.job_type, j.scheduled_start, j.status,\n  c.full_name, c.phone, c.address_line, c.city, c.lat, c.lng, c.sms_consent,\n  p.full_name AS partner_name, p.base_lat, p.base_lng,\n  rs.on_my_way_at,\n  (o.phone IS NOT NULL) AS opted_out\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nLEFT JOIN partners p ON p.id = j.partner_id\nLEFT JOIN sms_optouts o ON o.phone = c.phone\nLEFT JOIN route_stops rs ON rs.job_id = j.id AND rs.route_date = CURRENT_DATE\nWHERE j.id = '{{ $json.jobId }}';",
+        "options": {}
+      },
+      "id": "6ac9b336b57e9c82dd69c641c7c35e7f",
+      "name": "Load Stop & Customer",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2965e4d8-6b70-4f35-ac9b-29c0ac6012ac",
+              "leftValue": "={{ !$json.on_my_way_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "6f83e3f6341c45b876554703b4274467",
+      "name": "Not Already Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const LIB = '/home/node/lib';\nconst env = $env;\nconst { services } = require(LIB + '/services.js');\nconst { templates } = require(LIB + '/templates.js');\nconst { guardOutboundSms } = require(LIB + '/compliance.js');\n\nconst stop = $input.first().json;\nconst req = $('Read Request').first().json;\nconst { maps, twilio } = services(env);\nconst t = templates(env);\n\nif (stop.lat == null || stop.lng == null) {\n  return [{ json: { jobId: stop.job_id, sent: false, reason: 'customer address has no coordinates' } }];\n}\n\nconst from = req.from || { lat: stop.base_lat, lng: stop.base_lng };\n\n// An ETA lookup failing must not stop the customer being told the plumber is\n// coming — fall back to a sensible default rather than sending nothing.\nlet etaMinutes = 20;\ntry {\n  const eta = await maps.eta({\n    from,\n    destination: [stop.address_line, stop.city].filter(Boolean).join(', '),\n  });\n  if (eta && Number.isFinite(eta.durationMinutes)) etaMinutes = eta.durationMinutes;\n} catch (err) {\n  console.warn('ETA lookup failed, using default:', err.message);\n}\n\nconst customer = { full_name: stop.full_name, address_line: stop.address_line };\nconst body = t.onMyWaySms({\n  customer,\n  partnerName: stop.partner_name || 'Your technician',\n  etaMinutes,\n});\n\n// Transactional: the van is literally moving, so quiet hours do not apply.\n// Opt-out still does.\nconst gate = guardOutboundSms({\n  template: 'on_my_way', body, optedOut: stop.opted_out, consented: stop.sms_consent,\n}, env);\n\nif (!gate.allow) {\n  return [{ json: { jobId: stop.job_id, sent: false, reason: gate.reason } }];\n}\n\nawait twilio.sendSms({ to: stop.phone, body });\n\nreturn [{ json: {\n  jobId: stop.job_id, sent: true, etaMinutes,\n  customer: stop.full_name, body,\n} }];"
+      },
+      "id": "346e0fdec8fa5fdd174e7dc44d9fd968",
+      "name": "Compute ETA & Text Customer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=UPDATE route_stops SET on_my_way_at = NOW()\nWHERE job_id = '{{ $json.jobId }}' AND route_date = CURRENT_DATE;\n\nUPDATE jobs SET status = 'en_route'\nWHERE id = '{{ $json.jobId }}' AND status IN ('routed', 'confirmed', 'unconfirmed');",
+        "options": {}
+      },
+      "id": "97c96037c255103564af9c5d2736a2c2",
+      "name": "Mark En Route",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "plumber-postgres",
+          "name": "Plumber Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  jobId: $input.first().json.job_id,\n  sent: false,\n  reason: 'the customer has already been told you are on the way',\n} }];"
+      },
+      "id": "d0f8c78dbe87600bc1047bdcd3c82a21",
+      "name": "Already Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "6e518f04719efe5e0fb89acd081f9966",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 06 · On My Way\n\n**Trigger:** the plumber taps \"On my way\" in `web/on-my-way.html`.\n\n**Does:** takes their current position, asks Google Maps for a live ETA to the next stop, and texts the customer.\n\nThis is NOT background GPS tracking — a tap plus a live ETA. Don't sell it as tracking.\n\nCovers spec step **9**.",
+        "height": 260,
+        "width": 460,
+        "color": 4
+      },
+      "id": "36aa7b6554d6a67547ce599cceb27832",
+      "name": "Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -540,
+        -60
+      ]
+    }
+  ],
+  "connections": {
+    "On My Way Tapped": {
+      "main": [
+        [
+          {
+            "node": "Read Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Request": {
+      "main": [
+        [
+          {
+            "node": "Load Stop & Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Stop & Customer": {
+      "main": [
+        [
+          {
+            "node": "Not Already Sent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not Already Sent?": {
+      "main": [
+        [
+          {
+            "node": "Compute ETA & Text Customer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute ETA & Text Customer": {
+      "main": [
+        [
+          {
+            "node": "Mark En Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark En Route": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Sent": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": "plumber-automation"
+  },
+  "tags": [
+    "plumber"
+  ]
+}

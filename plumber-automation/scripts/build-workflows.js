@@ -45,6 +45,19 @@ for (const file of files) {
       }
     }
 
+    // n8n only evaluates {{ }} in a parameter whose value starts with "=".
+    // Without the prefix the placeholder is sent to Postgres verbatim, which
+    // fails at runtime in a way that is genuinely hard to spot in the editor.
+    for (const n of wf.nodes) {
+      for (const [param, value] of Object.entries(n.parameters || {})) {
+        if (typeof value === 'string' && value.includes('{{') && !value.startsWith('=')) {
+          throw new Error(
+            `node "${n.name}" has an unevaluated expression in "${param}" — it needs an "=" prefix`
+          );
+        }
+      }
+    }
+
     fs.writeFileSync(path.join(OUT, outName), JSON.stringify(wf, null, 2) + '\n');
     console.log(`  ✓ ${outName.padEnd(34)} ${String(wf.nodes.length).padStart(2)} nodes`);
   } catch (err) {

@@ -30,7 +30,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  j.id            AS job_id,\n  j.job_type,\n  j.urgency,\n  j.scheduled_start,\n  j.timezone,\n  j.status,\n  c.id            AS customer_id,\n  c.full_name,\n  c.phone,\n  c.email,\n  c.address_line,\n  c.city,\n  c.lat,\n  c.lng\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE j.id = '{{ $json.jobId }}';",
+        "query": "=SELECT\n  j.id            AS job_id,\n  j.job_type,\n  j.urgency,\n  j.scheduled_start,\n  j.timezone,\n  j.status,\n  c.id            AS customer_id,\n  c.full_name,\n  c.phone,\n  c.email,\n  c.address_line,\n  c.city,\n  c.lat,\n  c.lng\nFROM jobs j\nJOIN customers c ON c.id = j.customer_id\nWHERE j.id = '{{ $json.jobId }}';",
         "options": {}
       },
       "id": "83aaed57768f8c6cbae29d3bbd926394",
@@ -52,7 +52,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT\n  p.*,\n  COALESCE(load.jobs_today, 0)::int AS jobs_today\nFROM partners p\nLEFT JOIN (\n  SELECT partner_id, COUNT(*) AS jobs_today\n  FROM jobs\n  WHERE partner_id IS NOT NULL\n    AND status NOT IN ('cancelled', 'nurture')\n    AND (scheduled_start AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n        = (TIMESTAMPTZ '{{ $('Load Job & Customer').first().json.scheduled_start }}' AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n  GROUP BY partner_id\n) load ON load.partner_id = p.id\nWHERE p.active = TRUE;",
+        "query": "=SELECT\n  p.*,\n  COALESCE(load.jobs_today, 0)::int AS jobs_today\nFROM partners p\nLEFT JOIN (\n  SELECT partner_id, COUNT(*) AS jobs_today\n  FROM jobs\n  WHERE partner_id IS NOT NULL\n    AND status NOT IN ('cancelled', 'nurture')\n    AND (scheduled_start AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n        = (TIMESTAMPTZ '{{ $('Load Job & Customer').first().json.scheduled_start }}' AT TIME ZONE '{{ $('Load Job & Customer').first().json.timezone }}')::date\n  GROUP BY partner_id\n) load ON load.partner_id = p.id\nWHERE p.active = TRUE;",
         "options": {}
       },
       "id": "00b2cee7a7733959476f863258dfcb14",
@@ -95,7 +95,7 @@
           },
           "conditions": [
             {
-              "id": "e1ddeef7-b580-4c4d-b02e-3dd7b2bf7f6a",
+              "id": "20c71f5a-b6dc-4f45-89af-f8d47e649d8c",
               "leftValue": "={{ $json.assigned !== null }}",
               "rightValue": "",
               "operator": {
@@ -122,7 +122,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs\nSET partner_id = '{{ $json.assigned.id }}', status = 'assigned'\nWHERE id = '{{ $json.job_id }}'\nRETURNING *;",
+        "query": "=UPDATE jobs\nSET partner_id = '{{ $json.assigned.id }}', status = 'assigned'\nWHERE id = '{{ $json.job_id }}'\nRETURNING *;",
         "options": {}
       },
       "id": "f2e5c0ec7a624c40ed2d7924613a02d2",
@@ -170,7 +170,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE jobs SET status = 'needs_assignment'\nWHERE id = '{{ $json.jobId }}';",
+        "query": "=UPDATE jobs SET status = 'needs_assignment'\nWHERE id = '{{ $json.jobId }}';",
         "options": {}
       },
       "id": "ebbaadd1a324148764c6e7ad1635044d",
