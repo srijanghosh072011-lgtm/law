@@ -1,0 +1,26 @@
+# Security headers — Cloudflare Pages / Netlify syntax.
+# Checklist section 4. Verify at https://securityheaders.com after deploy.
+#
+# CSP notes:
+#   - script-src 'self'      : only /assets/js/site.js. No inline scripts.
+#                              (JSON-LD blocks are data, not executed script,
+#                              so they do not need a hash or 'unsafe-inline'.)
+#   - style-src              : own stylesheet + the Google Fonts CSS file.
+#   - font-src               : the font files Google Fonts CSS points at.
+#   - form-action 'none'     : there are no forms; contact is mailto only.
+#                              Add the endpoint host here if a form is added.
+#   - img-src 'self' data:   : all artwork is inline SVG or CSS.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  X-Robots-Tag: index, follow
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
