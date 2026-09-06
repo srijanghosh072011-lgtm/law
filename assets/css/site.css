@@ -36,6 +36,7 @@
   --shadow-inset: inset 0 1px 1px rgba(255, 255, 255, 0.9);
 
   --gutter: clamp(20px, 5vw, 68px);
+  --masthead-h: calc(2 * clamp(14px, 1.8vw, 24px) + 48px);
   --section: clamp(68px, 9vw, 128px);
 }
 
@@ -244,6 +245,15 @@ p {
   margin: clamp(10px, 1.4vw, 20px);
   overflow: clip;
   box-shadow: 0 1px 3px rgba(13, 16, 20, 0.05);
+}
+
+.sheet.has-hero {
+  margin-top: calc(-1 * var(--masthead-h));
+}
+
+/* The hero is the top of the sheet on those pages: one card, thin frame. */
+.hero-bay {
+  padding: clamp(8px, 1vw, 14px);
 }
 
 .wrap {
@@ -497,7 +507,10 @@ body.is-locked .masthead {
 }
 
 .pillnav a {
-  padding: 9px 17px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
   border-radius: 999px;
   font-size: 0.875rem;
   font-weight: 600;
@@ -514,6 +527,17 @@ body.is-locked .masthead {
 .pillnav a[aria-current="page"] {
   background: var(--ink);
   color: #fff;
+}
+
+.pillnav svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  opacity: 0.72;
+}
+
+.pillnav a[aria-current="page"] svg {
+  opacity: 1;
 }
 
 .masthead__end {
@@ -773,6 +797,7 @@ body.is-locked .masthead {
   border-radius: clamp(22px, 2.6vw, 34px);
   padding: clamp(48px, 8vw, 116px) clamp(22px, 5vw, 76px) clamp(40px, 5vw, 72px);
   overflow: clip;
+  isolation: isolate;
   background: linear-gradient(178deg, var(--sky-top) 0%, var(--sky-mid) 44%, var(--sky-low) 100%);
 }
 
@@ -790,6 +815,10 @@ body.is-locked .masthead {
   z-index: 1;
 }
 
+.has-hero .hero {
+  padding-top: calc(var(--masthead-h) + clamp(36px, 6vw, 92px));
+}
+
 .hero__inner {
   display: grid;
   gap: 24px;
@@ -801,6 +830,56 @@ body.is-locked .masthead {
 
 .hero__inner .display {
   max-width: 16ch;
+}
+
+.hero--sky {
+  background:
+    /* haze gathering toward the horizon, not discrete blobs */
+    radial-gradient(86% 26% at 50% 74%, rgba(255, 255, 255, 0.7), transparent 76%),
+    radial-gradient(58% 16% at 22% 58%, rgba(255, 255, 255, 0.42), transparent 78%),
+    radial-gradient(50% 14% at 80% 52%, rgba(255, 255, 255, 0.34), transparent 78%),
+    linear-gradient(
+      180deg,
+      #a9c6e6 0%,
+      #bcd4ec 18%,
+      #d2e2f0 38%,
+      #e4ecf1 56%,
+      #f0f1ea 70%,
+      #f3f1e4 80%,
+      #eeeedd 100%
+    );
+}
+
+/* Meadow along the bottom edge — sunlit and out of focus, not a lawn. */
+.hero--sky::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 27%;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(173, 186, 133, 0) 0%,
+    rgba(167, 181, 124, 0.28) 18%,
+    rgba(150, 168, 100, 0.62) 38%,
+    rgba(133, 155, 82, 0.88) 58%,
+    #83994f 78%,
+    #768d45 100%
+  );
+  pointer-events: none;
+}
+
+/* A softer band of light where the field meets the sky. */
+.hero--sky::after {
+  background:
+    radial-gradient(96% 14% at 50% -3%, rgba(255, 255, 255, 0.26), transparent 72%),
+    radial-gradient(120% 12% at 50% 73%, rgba(255, 255, 255, 0.5), transparent 70%);
+}
+
+/* The console rides over the meadow and is cropped by the hero, as in the
+   reference where the product shot runs off the bottom of the image. */
+.hero--sky .console {
+  margin-bottom: calc(-1 * clamp(56px, 8vw, 104px));
 }
 
 .hero--dark {
@@ -855,6 +934,10 @@ body.is-locked .masthead {
   font-weight: 600;
   color: var(--muted);
   letter-spacing: -0.01em;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .console__live {
@@ -931,6 +1014,18 @@ body.is-locked .masthead {
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .runlog li {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 2px;
+  }
+
+  .runlog__time {
+    grid-column: 2;
+    grid-row: 2;
+  }
 }
 
 /* --------------------------------------------------------- phone / chat */
@@ -1560,9 +1655,15 @@ section[id] {
   scroll-margin-top: clamp(84px, 10vw, 116px);
 }
 
+/* Pinned just below the nav and out of flow: "not intersecting" then means
+   "the page has scrolled past the nav", nothing else. */
 [data-scroll-top] {
-  display: block;
+  position: absolute;
+  top: var(--masthead-h);
+  left: 0;
+  width: 1px;
   height: 1px;
+  pointer-events: none;
 }
 
 /* Vertical breathing room between a heading block and what follows it. */
