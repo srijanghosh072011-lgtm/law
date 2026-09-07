@@ -8,7 +8,6 @@ as-is and it works.
 index.html                 Home
 automation/index.html      Landing page — "automation"
 websites/index.html        Landing page — "website design"
-ai-assistants/index.html   Landing page — "AI assistant / chatbot"
 privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
