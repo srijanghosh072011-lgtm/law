@@ -417,16 +417,16 @@
 
       <div class="bay" data-tabs>
         <div class="tabs tabs--line" role="tablist" aria-label="Stages of a build">
-          <button type="button" role="tab" id="s-map" aria-controls="ps-map" aria-selected="true">
+          <button type="button" role="tab" id="s-map" data-step="01" aria-controls="ps-map" aria-selected="true">
             <b>Map</b><span>Week one</span>
           </button>
-          <button type="button" role="tab" id="s-build" aria-controls="ps-build" aria-selected="false" tabindex="-1">
+          <button type="button" role="tab" id="s-build" data-step="02" aria-controls="ps-build" aria-selected="false" tabindex="-1">
             <b>Build</b><span>In stages</span>
           </button>
-          <button type="button" role="tab" id="s-hand" aria-controls="ps-hand" aria-selected="false" tabindex="-1">
+          <button type="button" role="tab" id="s-hand" data-step="03" aria-controls="ps-hand" aria-selected="false" tabindex="-1">
             <b>Hand over</b><span>With documentation</span>
           </button>
-          <button type="button" role="tab" id="s-care" aria-controls="ps-care" aria-selected="false" tabindex="-1">
+          <button type="button" role="tab" id="s-care" data-step="04" aria-controls="ps-care" aria-selected="false" tabindex="-1">
             <b>Look after</b><span>Optional</span>
           </button>
         </div>
@@ -440,7 +440,8 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Process map</b><span>Draft</span></div>
+            <div class="mock__row">
                   <span class="mock__chip"><i></i> Step 1 &middot; Manual</span>
                   <span class="mock__chip"><i></i> Step 2 &middot; Manual</span>
                 </div>
@@ -463,7 +464,8 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Build queue</b><span>In progress</span></div>
+            <div class="mock__row">
                   <span class="mock__chip mock__chip--done"><i></i> Enquiry routing &middot; live</span>
                 </div>
                 <div class="mock__row">
@@ -484,7 +486,8 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <dl class="kv">
+                <div class="mock__head"><b>Handover pack</b><span>Yours</span></div>
+            <dl class="kv">
                   <div><dt>Owner of every account</dt><dd>You</dd></div>
                   <div><dt>Documentation</dt><dd>Written, plain English</dd></div>
                   <div><dt>Walkthrough session</dt><dd>Recorded</dd></div>
@@ -501,13 +504,15 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Overnight runs</b><span>Monitored</span></div>
+            <div class="mock__row">
                   <span class="mock__chip mock__chip--done"><i></i> Runs healthy</span>
                   <span class="mock__chip mock__chip--wait"><i></i> 1 needs review</span>
                 </div>
                 <dl class="kv">
                   <div><dt>Failed run last night</dt><dd>Caught and re-run</dd></div>
                   <div><dt>Records affected</dt><dd>0</dd></div>
+                  <div><dt>Change you asked for</dt><dd>Shipped same week</dd></div>
                 </dl>
               </div>
             </div>

@@ -1254,14 +1254,16 @@ body.is-locked .masthead {
 }
 
 .tabs--line {
+  display: grid;
+  grid-auto-flow: column;
+  background: none;
+  grid-auto-columns: minmax(154px, 1fr);
+  gap: 0;
   padding: 0;
   border: 0;
-  background: none;
-  border-bottom: 1px solid var(--line);
-  gap: clamp(14px, 3vw, 44px);
+  border-top: 1px solid var(--line);
   border-radius: 0;
   overflow-x: auto;
-  flex-wrap: nowrap;
   scrollbar-width: none;
 }
 
@@ -1272,13 +1274,16 @@ body.is-locked .masthead {
 .tabs--line button {
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
-  padding: 0 0 16px;
+  gap: 3px;
+  min-height: 0;
+  padding: 18px 22px 22px 0;
   border-radius: 0;
-  border-bottom: 1px solid transparent;
-  margin-bottom: -1px;
+  border-top: 2px solid transparent;
+  margin-top: -1px;
   background: none;
   color: var(--muted);
+  white-space: normal;
+  transition: border-color 0.5s var(--ease), color 0.4s var(--ease);
 }
 
 .tabs--line button:hover {
@@ -1289,18 +1294,32 @@ body.is-locked .masthead {
 .tabs--line button[aria-selected="true"] {
   background: none;
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  border-top-color: var(--ink);
   box-shadow: none;
 }
 
+/* Decorative step numeral — the tab role already conveys position to AT. */
+.tabs--line button::before {
+  content: attr(data-step);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  transition: color 0.4s var(--ease);
+}
+
+.tabs--line button[aria-selected="true"]::before {
+  color: var(--blue);
+}
+
 .tabs--line b {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .tabs--line span {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 400;
   color: var(--muted);
 }
@@ -1384,20 +1403,25 @@ body.is-locked .masthead {
 
 .showcase {
   display: grid;
-  gap: clamp(20px, 3vw, 46px);
-  align-items: center;
+  gap: clamp(24px, 3vw, 56px);
+  align-items: start;
 }
 
 @media (min-width: 900px) {
   .showcase {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
   }
+}
+
+.showcase .stack {
+  gap: 18px;
+  padding-top: 4px;
 }
 
 .showcase__art {
   position: relative;
   border-radius: var(--r-xl);
-  padding: clamp(22px, 3vw, 40px);
+  padding: clamp(16px, 2vw, 28px);
   background: linear-gradient(158deg, #e6eefb 0%, #f2f0ec 100%);
   overflow: clip;
 }
@@ -1423,10 +1447,35 @@ body.is-locked .masthead {
   box-shadow: var(--shadow-lift);
 }
 
+.mock__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mock__head b {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.mock__head span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .mock__row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mock__chip {

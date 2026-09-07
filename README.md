@@ -44,8 +44,11 @@ python3 assets/img/make-hero.py assets/img/hero.webp   # writes both sizes
 
 Edit the palette or the horizon at the top of that script to re-tune it.
 
-**To use a real photograph instead**, drop the file in `assets/img/` and change
-one line in `site.css`:
+**A custom AI-generated image is planned for the hero** — that is the intended
+final artwork, and what is committed now is the stand-in until it arrives.
+
+**To swap in that image (or any photograph)**, drop the file in `assets/img/`
+and change one line in `site.css`:
 
 ```css
 :root { --hero-photo: url("/assets/img/your-photo.webp"); }

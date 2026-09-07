@@ -234,9 +234,9 @@
 
       <div class="bay" data-tabs>
         <div class="tabs tabs--line" role="tablist" aria-label="Where an assistant sits">
-          <button type="button" role="tab" id="k-front" aria-controls="pk-front" aria-selected="true"><b>Front of house</b><span>Customer facing</span></button>
-          <button type="button" role="tab" id="k-back" aria-controls="pk-back" aria-selected="false" tabindex="-1"><b>Back of house</b><span>For your team</span></button>
-          <button type="button" role="tab" id="k-inbox" aria-controls="pk-inbox" aria-selected="false" tabindex="-1"><b>In the inbox</b><span>Drafting, not sending</span></button>
+          <button type="button" role="tab" id="k-front" data-step="01" aria-controls="pk-front" aria-selected="true"><b>Front of house</b><span>Customer facing</span></button>
+          <button type="button" role="tab" id="k-back" data-step="02" aria-controls="pk-back" aria-selected="false" tabindex="-1"><b>Back of house</b><span>For your team</span></button>
+          <button type="button" role="tab" id="k-inbox" data-step="03" aria-controls="pk-inbox" aria-selected="false" tabindex="-1"><b>In the inbox</b><span>Drafting, not sending</span></button>
         </div>
 
         <div class="bay">
@@ -248,7 +248,8 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Conversations</b><span>Front of house</span></div>
+            <div class="mock__row">
                   <span class="mock__chip mock__chip--done"><i></i> Answered</span>
                   <span class="mock__chip mock__chip--wait"><i></i> Passed to a human</span>
                 </div>
@@ -267,12 +268,17 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Sources it reads</b><span>Yours only</span></div>
+            <div class="mock__row">
                   <span class="mock__chip"><i></i> Process notes</span>
                   <span class="mock__chip"><i></i> Supplier terms</span>
                   <span class="mock__chip"><i></i> Job history</span>
                 </div>
                 <div class="mock__bar"><span class="w80"></span></div>
+                <dl class="kv">
+                  <div><dt>Asked in</dt><dd>Plain language</dd></div>
+                  <div><dt>Answers from</dt><dd>One place you control</dd></div>
+                </dl>
               </div>
             </div>
           </div>
@@ -285,6 +291,11 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
+                <div class="mock__head"><b>Draft replies</b><span>You send</span></div>
+            <div class="mock__row">
+                  <span class="mock__chip mock__chip--done"><i></i> 9 drafted</span>
+                  <span class="mock__chip mock__chip--wait"><i></i> 0 sent without you</span>
+                </div>
                 <dl class="kv">
                   <div><dt>Drafts written</dt><dd>Automatically</dd></div>
                   <div><dt>Messages sent</dt><dd>Only by you</dd></div>

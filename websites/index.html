@@ -237,10 +237,10 @@
 
       <div class="bay" data-tabs>
         <div class="tabs tabs--line" role="tablist" aria-label="Stages of a website build">
-          <button type="button" role="tab" id="w-brief" aria-controls="pw-brief" aria-selected="true"><b>Brief</b><span>What it is for</span></button>
-          <button type="button" role="tab" id="w-words" aria-controls="pw-words" aria-selected="false" tabindex="-1"><b>Words</b><span>Before design</span></button>
-          <button type="button" role="tab" id="w-design" aria-controls="pw-design" aria-selected="false" tabindex="-1"><b>Design</b><span>On real content</span></button>
-          <button type="button" role="tab" id="w-launch" aria-controls="pw-launch" aria-selected="false" tabindex="-1"><b>Launch</b><span>And handover</span></button>
+          <button type="button" role="tab" id="w-brief" data-step="01" aria-controls="pw-brief" aria-selected="true"><b>Brief</b><span>What it is for</span></button>
+          <button type="button" role="tab" id="w-words" data-step="02" aria-controls="pw-words" aria-selected="false" tabindex="-1"><b>Words</b><span>Before design</span></button>
+          <button type="button" role="tab" id="w-design" data-step="03" aria-controls="pw-design" aria-selected="false" tabindex="-1"><b>Design</b><span>On real content</span></button>
+          <button type="button" role="tab" id="w-launch" data-step="04" aria-controls="pw-launch" aria-selected="false" tabindex="-1"><b>Launch</b><span>And handover</span></button>
         </div>
 
         <div class="bay">
@@ -251,6 +251,11 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
+                <div class="mock__head"><b>Project brief</b><span>Agreed</span></div>
+            <div class="mock__row">
+                  <span class="mock__chip mock__chip--done"><i></i> Scope signed off</span>
+                  <span class="mock__chip"><i></i> 6 pages</span>
+                </div>
                 <dl class="kv">
                   <div><dt>Primary action</dt><dd>Request a quote</dd></div>
                   <div><dt>Pages at launch</dt><dd>Agreed up front</dd></div>
@@ -267,11 +272,16 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Search language</b><span>Copy first</span></div>
+            <div class="mock__row">
                   <span class="mock__chip"><i></i> What they search</span>
                   <span class="mock__chip mock__chip--wait"><i></i> What you call it</span>
                 </div>
-                <p class="small">When those two differ, the customer's version wins.</p>
+                <dl class="kv">
+                  <div><dt>&ldquo;emergency plumber&rdquo;</dt><dd>Their words</dd></div>
+                  <div><dt>&ldquo;reactive maintenance&rdquo;</dt><dd>Yours</dd></div>
+                </dl>
+                <p class="small">When those two differ, the customer&rsquo;s version wins.</p>
               </div>
             </div>
           </div>
@@ -283,12 +293,17 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <div class="mock__row">
+                <div class="mock__head"><b>Reviewed at</b><span>Real widths</span></div>
+            <div class="mock__row">
                   <span class="mock__chip mock__chip--done"><i></i> 375px</span>
                   <span class="mock__chip mock__chip--done"><i></i> 768px</span>
                   <span class="mock__chip mock__chip--done"><i></i> 1440px</span>
                 </div>
                 <div class="mock__bar"><span class="w66"></span></div>
+                <dl class="kv">
+                  <div><dt>Reviewed on</dt><dd>The real site</dd></div>
+                  <div><dt>Content used</dt><dd>Final copy, not filler</dd></div>
+                </dl>
               </div>
             </div>
           </div>
@@ -301,7 +316,8 @@
             </div>
             <div class="showcase__art">
               <div class="mock">
-                <dl class="kv">
+                <div class="mock__head"><b>Launch checks</b><span>Passed</span></div>
+            <dl class="kv">
                   <div><dt>HTTPS</dt><dd>Enforced</dd></div>
                   <div><dt>Security headers</dt><dd>Set</dd></div>
                   <div><dt>Sitemap</dt><dd>Submitted</dd></div>
