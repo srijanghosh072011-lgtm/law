@@ -12,6 +12,8 @@ ai-assistants/index.html   Landing page — "AI assistant / chatbot"
 privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
+assets/img/hero.webp       Hero background (2400w) + hero-sm.webp (1200w)
+assets/img/make-hero.py    Regenerates those two files
 _headers                   Security headers (Cloudflare Pages / Netlify)
 robots.txt, sitemap.xml    Search
 SECURITY.md                Pre-launch checklist — walk it before pointing DNS
@@ -28,6 +30,34 @@ To add another (`/seo/`, `/shopify/`, `/local-seo/` …): copy
 `automation/index.html`, change the head block, the JSON-LD, the copy, and the
 `aria-current="page"` marker in the nav. Then add the URL to `sitemap.xml` and
 the nav lists on the other pages. Nothing else to wire up.
+
+## The hero background
+
+`assets/img/hero.webp` is a synthesised out-of-focus sky over a meadow,
+produced by `assets/img/make-hero.py` (Pillow, no other dependencies). It is an
+original image, so nothing is licensed from anyone and there is no attribution
+to carry. 18 KB at 2400px wide; the 1200px file served below 800px is 6 KB.
+
+```
+python3 assets/img/make-hero.py assets/img/hero.webp   # writes both sizes
+```
+
+Edit the palette or the horizon at the top of that script to re-tune it.
+
+**To use a real photograph instead**, drop the file in `assets/img/` and change
+one line in `site.css`:
+
+```css
+:root { --hero-photo: url("/assets/img/your-photo.webp"); }
+```
+
+Pick something light and low-contrast in the upper two thirds — the heading is
+dark ink and sits there. Convert to WebP and keep it under about 250 KB. If you
+source it from Unsplash or Pexels, both allow commercial use; do not lift an
+image off another company's site, which is what their licence forbids.
+
+The gradients underneath stay in place as the fallback, so if the file is ever
+missing the hero still renders correctly rather than going blank.
 
 ## Before it goes live
 
@@ -52,8 +82,9 @@ Done in this repo:
   and the CSP sets `form-action 'none'` (§5)
 - Privacy policy exists, is linked from every footer, and describes what the
   site actually does — no cookies, no analytics, no forms (§6)
-- No images to optimise: every graphic is inline SVG or CSS, so there is
-  nothing to lazy-load and no third-party image host in the CSP (§7)
+- The one raster image is WebP, self-hosted, served at two sizes and
+  preloaded (it is the LCP element); every other graphic is inline SVG or
+  CSS, so no third-party image host enters the CSP (§7)
 - Semantic HTML, skip link, labelled landmarks, keyboard-driven tabs, visible
   focus rings, AA contrast, `prefers-reduced-motion` honoured (§9)
 - `robots.txt` and `sitemap.xml` present; OpenGraph and Twitter tags set (§9)
@@ -72,7 +103,8 @@ Still needs a human, because it is hosting and DNS rather than code:
 - Submit to Google Search Console (§9)
 - Add a 1200×630 OpenGraph image and an `og:image` tag. The pages ship
   `twitter:card=summary` rather than `summary_large_image` so nothing points at
-  a file that does not exist yet.
+  a file that does not exist yet. `make-hero.py` can produce the artwork for
+  it — change the output size at the top of the script.
 
 ### If a contact form is added later
 
