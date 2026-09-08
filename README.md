@@ -8,6 +8,8 @@ as-is and it works.
 index.html                 Home
 automation/index.html      Landing page — "automation"
 websites/index.html        Landing page — "website design"
+seo/index.html             Landing page — "SEO"
+local-seo/index.html       Landing page — "local SEO"
 privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
