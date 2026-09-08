@@ -14,7 +14,8 @@ privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
 assets/img/hero.webp       Hero background (2400w) + hero-sm.webp (1200w)
-assets/img/make-hero.py    Regenerates those two files
+assets/img/make-hero.py    Regenerates the stand-in artwork
+assets/img/prepare-hero.py Converts your own picture into those two files
 _headers                   Security headers (Cloudflare Pages / Netlify)
 robots.txt, sitemap.xml    Search
 SECURITY.md                Pre-launch checklist — walk it before pointing DNS
@@ -48,17 +49,27 @@ Edit the palette or the horizon at the top of that script to re-tune it.
 **A custom AI-generated image is planned for the hero** — that is the intended
 final artwork, and what is committed now is the stand-in until it arrives.
 
-**To swap in that image (or any photograph)**, drop the file in `assets/img/`
-and change one line in `site.css`:
+**To swap in that image (or any photograph)**, run it through the converter —
+no CSS change needed, because it writes the filenames the stylesheet already
+points at:
 
-```css
-:root { --hero-photo: url("/assets/img/your-photo.webp"); }
+```
+python3 assets/img/prepare-hero.py ~/Downloads/your-picture.png
 ```
 
-Pick something light and low-contrast in the upper two thirds — the heading is
-dark ink and sits there. Convert to WebP and keep it under about 250 KB. If you
-source it from Unsplash or Pexels, both allow commercial use; do not lift an
-image off another company's site, which is what their licence forbids.
+It writes WebP at two sizes, never upscales, warns if the file is over the
+250 KB budget, and tells you how far the picture has to be blown up to cover
+the hero.
+
+What to give it: **2400x1600 is the target**. Wide matters less than tall —
+the hero box is nearly square on a desktop and very tall on a phone, so a
+16:9 picture has to be scaled up vertically to cover it while a 3:2 one does
+not. Keep the upper two thirds light and low-contrast, because the heading is
+dark ink and sits there.
+
+If you source a picture rather than generate one, Unsplash and Pexels both
+allow commercial use; do not lift an image off another company's site, which
+is what their licence forbids.
 
 The gradients underneath stay in place as the fallback, so if the file is ever
 missing the hero still renders correctly rather than going blank.
