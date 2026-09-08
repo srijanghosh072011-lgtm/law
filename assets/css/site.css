@@ -909,6 +909,12 @@ body.is-locked .masthead {
   background-repeat: no-repeat;
 }
 
+/* Muted grey is tuned for white cards; over a photographic sky it falls under
+   AA. The hero keeps the darker ink so any picture can be dropped in. */
+.hero--sky .lede {
+  color: var(--ink-soft);
+}
+
 /* The console rides over the meadow and is cropped by the hero, as in the
    reference where the product shot runs off the bottom of the image. */
 .hero--sky .console {
