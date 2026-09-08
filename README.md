@@ -14,8 +14,8 @@ privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
 assets/img/hero.webp       Hero background (2400w) + hero-sm.webp (1200w)
-assets/img/make-hero.py    Regenerates the stand-in artwork
-assets/img/prepare-hero.py Converts your own picture into those two files
+assets/img/hero-source.jpg The full-size original the two WebPs come from
+assets/img/prepare-hero.py Re-cuts them if you replace the original
 _headers                   Security headers (Cloudflare Pages / Netlify)
 robots.txt, sitemap.xml    Search
 SECURITY.md                Pre-launch checklist — walk it before pointing DNS
@@ -35,44 +35,28 @@ the nav lists on the other pages. Nothing else to wire up.
 
 ## The hero background
 
-`assets/img/hero.webp` is a synthesised out-of-focus sky over a meadow,
-produced by `assets/img/make-hero.py` (Pillow, no other dependencies). It is an
-original image, so nothing is licensed from anyone and there is no attribution
-to carry. 18 KB at 2400px wide; the 1200px file served below 800px is 6 KB.
+`assets/img/hero.webp` (and `hero-sm.webp`, served under 800px) are cut from
+`hero-source.jpg`, which is kept in the repo so the two can be regenerated
+without hunting for the original. 1536x1024, so it is scaled up about 1.2x to
+cover the hero on a large screen — close enough to native that it holds up.
+
+To replace it, drop the new picture in and re-run the converter. It writes the
+same two filenames the stylesheet already points at, so no CSS changes:
 
 ```
-python3 assets/img/make-hero.py assets/img/hero.webp   # writes both sizes
+python3 assets/img/prepare-hero.py assets/img/hero-source.jpg
 ```
 
-Edit the palette or the horizon at the top of that script to re-tune it.
+The script never upscales, warns past the 250 KB budget from SECURITY.md §7,
+and reports how far the picture has to be blown up to cover the hero.
 
-**A custom AI-generated image is planned for the hero** — that is the intended
-final artwork, and what is committed now is the stand-in until it arrives.
+What to give it: **2400x1600 is the ideal**. Tall matters more than wide — the
+hero box is nearly square on a desktop and very tall on a phone, so a 16:9
+picture gets stretched vertically while a 3:2 one does not. Keep the upper two
+thirds light, because the heading sits there in dark ink.
 
-**To swap in that image (or any photograph)**, run it through the converter —
-no CSS change needed, because it writes the filenames the stylesheet already
-points at:
-
-```
-python3 assets/img/prepare-hero.py ~/Downloads/your-picture.png
-```
-
-It writes WebP at two sizes, never upscales, warns if the file is over the
-250 KB budget, and tells you how far the picture has to be blown up to cover
-the hero.
-
-What to give it: **2400x1600 is the target**. Wide matters less than tall —
-the hero box is nearly square on a desktop and very tall on a phone, so a
-16:9 picture has to be scaled up vertically to cover it while a 3:2 one does
-not. Keep the upper two thirds light and low-contrast, because the heading is
-dark ink and sits there.
-
-If you source a picture rather than generate one, Unsplash and Pexels both
-allow commercial use; do not lift an image off another company's site, which
-is what their licence forbids.
-
-The gradients underneath stay in place as the fallback, so if the file is ever
-missing the hero still renders correctly rather than going blank.
+The CSS gradients underneath remain as the fallback: if the file ever goes
+missing the hero still renders, it just loses the photograph.
 
 ## Before it goes live
 
