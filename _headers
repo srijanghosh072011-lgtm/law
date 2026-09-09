@@ -22,5 +22,15 @@
   Cross-Origin-Resource-Policy: same-origin
   X-Robots-Tag: index, follow
 
-/assets/*
+# Image filenames are stable content, so they can be cached hard.
+/assets/img/*
   Cache-Control: public, max-age=31536000, immutable
+
+# These two are referenced unversioned and there is no build step to
+# fingerprint them, so they have to stay revalidatable. Cached immutable, a
+# fix would never reach anyone who had already visited.
+/assets/css/*
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/assets/js/*
+  Cache-Control: public, max-age=3600, must-revalidate

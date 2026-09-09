@@ -1,8 +1,8 @@
 """Turn a hero photograph into the two files the site serves.
 
-    python3 assets/img/prepare-hero.py ~/Downloads/whatever.png
+    python3 tools/prepare-hero.py ~/Downloads/whatever.png
 
-Writes assets/img/hero.webp (large) and hero-sm.webp (served under 800px),
+Writes assets/img/hero.webp (large) and assets/img/hero-sm.webp (served under 800px),
 which are the filenames site.css already points at — so nothing else changes.
 
 Needs Pillow:  pip install pillow
@@ -12,10 +12,10 @@ from pathlib import Path
 
 from PIL import Image
 
-OUT = Path(__file__).parent
+OUT = Path(__file__).parent.parent / "assets" / "img"
 LARGE, SMALL = 2400, 1200
 QUALITY = 82
-BUDGET_KB = 250  # SECURITY.md §7: the hero is the LCP element, keep it small
+BUDGET_KB = 250  # the hero is the LCP element; keep it cheap to fetch
 
 
 def main(src):

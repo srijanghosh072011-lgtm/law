@@ -1,8 +1,8 @@
 # Ghosh Designs — site
 
 Static site. Hand-written HTML and CSS, one small JavaScript file, no framework,
-no build step. Open `index.html` in a browser and it works; deploy the folder
-as-is and it works.
+no build step. Serve the folder and it works (see Local preview below — the
+root-relative paths need a server, so opening a file from disk will not do).
 
 ```
 index.html                 Home
@@ -13,9 +13,9 @@ local-seo/index.html       Landing page — "local SEO"
 privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
-assets/img/hero.webp       Hero background (2400w) + hero-sm.webp (1200w)
-assets/img/hero-source.jpg The full-size original the two WebPs come from
-assets/img/prepare-hero.py Re-cuts them if you replace the original
+assets/img/hero.webp       Hero background (1536w) + hero-sm.webp (1200w)
+tools/hero-source.jpg      The original the two WebPs are cut from
+tools/prepare-hero.py      Re-cuts them if you replace the original
 _headers                   Security headers (Cloudflare Pages / Netlify)
 robots.txt, sitemap.xml    Search
 SECURITY.md                Pre-launch checklist — walk it before pointing DNS
@@ -35,20 +35,25 @@ the nav lists on the other pages. Nothing else to wire up.
 
 ## The hero background
 
-`assets/img/hero.webp` (and `hero-sm.webp`, served under 800px) are cut from
-`hero-source.jpg`, which is kept in the repo so the two can be regenerated
-without hunting for the original. 1536x1024, so it is scaled up about 1.2x to
-cover the hero on a large screen — close enough to native that it holds up.
+`assets/img/hero.webp` (1536w) and `hero-sm.webp` (1200w, served under 800px)
+are cut from `tools/hero-source.jpg`, kept in the repo so they can be
+regenerated without hunting for the original. The source is 1536x1024, so it
+is scaled up about 1.2x to cover the hero on a large screen — close enough to
+native that it holds up.
+
+`tools/` is build input, not site content. If your host publishes the repo
+root, exclude that folder in its build settings so the original and the script
+are not served.
 
 To replace it, drop the new picture in and re-run the converter. It writes the
 same two filenames the stylesheet already points at, so no CSS changes:
 
 ```
-python3 assets/img/prepare-hero.py assets/img/hero-source.jpg
+python3 tools/prepare-hero.py tools/hero-source.jpg
 ```
 
-The script never upscales, warns past the 250 KB budget from SECURITY.md §7,
-and reports how far the picture has to be blown up to cover the hero.
+The script never upscales, warns past a 250 KB budget, and reports how far the
+picture has to be blown up to cover the hero.
 
 What to give it: **2400x1600 is the ideal**. Tall matters more than wide — the
 hero box is nearly square on a desktop and very tall on a phone, so a 16:9
@@ -85,7 +90,8 @@ Done in this repo:
   preloaded (it is the LCP element); every other graphic is inline SVG or
   CSS, so no third-party image host enters the CSP (§7)
 - Semantic HTML, skip link, labelled landmarks, keyboard-driven tabs, visible
-  focus rings, AA contrast, `prefers-reduced-motion` honoured (§9)
+  focus rings, AA contrast measured on composited colours, `inert` behind the
+  open menu, `prefers-reduced-motion` honoured (§9)
 - `robots.txt` and `sitemap.xml` present; OpenGraph and Twitter tags set (§9)
 - No `TODO`, `FIXME`, `console.log`, `localhost` or placeholder copy in the
   source (§10)
@@ -102,8 +108,8 @@ Still needs a human, because it is hosting and DNS rather than code:
 - Submit to Google Search Console (§9)
 - Add a 1200×630 OpenGraph image and an `og:image` tag. The pages ship
   `twitter:card=summary` rather than `summary_large_image` so nothing points at
-  a file that does not exist yet. `make-hero.py` can produce the artwork for
-  it — change the output size at the top of the script.
+  a file that does not exist yet. Cropping the hero photograph is the obvious
+  source; `prepare-hero.py` will not do it, as it only writes hero widths.
 
 ### If a contact form is added later
 
