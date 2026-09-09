@@ -65,14 +65,20 @@ missing the hero still renders, it just loses the photograph.
 
 ## Before it goes live
 
-Two find-and-replace passes, then the checklist:
+The domain (`ghoshdesigns.com`) and the contact address are both real — no
+placeholders left. Walk `SECURITY.md` top to bottom, then note the two items
+below.
 
-1. **Domain.** `https://ghoshdesigns.com` appears in canonical tags, OpenGraph
-   URLs, JSON-LD, `robots.txt` and `sitemap.xml`. Replace with the real domain.
-2. **Contact address.** `hello@ghoshdesigns.com` is used for every call to
-   action. Replace with the real inbox — a custom-domain address, not a
-   personal Gmail (SECURITY.md §3).
-3. Walk `SECURITY.md` top to bottom.
+**The contact address is a personal Gmail.** SECURITY.md §3 asks for one on the
+custom domain, because a Gmail cannot carry SPF, DKIM or DMARC for
+`ghoshdesigns.com` and it reads as less established on a studio site. It is
+here because `hello@ghoshdesigns.com` is a no-reply used by automation. When a
+real mailbox on the domain exists — `srijan@`, `studio@`, anything — it is one
+find-and-replace across the six pages.
+
+**It is also in plain text in the markup**, so it will be scraped. A contact
+form (see below) removes both problems at once, since the address then never
+appears on the page.
 
 ### Where the checklist already stands
 
