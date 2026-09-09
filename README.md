@@ -17,6 +17,8 @@ assets/img/hero.webp       Hero background (1536w) + hero-sm.webp (1200w)
 tools/hero-source.jpg      The original the two WebPs are cut from
 tools/prepare-hero.py      Re-cuts them if you replace the original
 _headers                   Security headers (Cloudflare Pages / Netlify)
+CNAME                      Custom domain for GitHub Pages
+.nojekyll                  Stops Pages running Jekyll over the folder
 robots.txt, sitemap.xml    Search
 SECURITY.md                Pre-launch checklist — walk it before pointing DNS
 ```
@@ -86,8 +88,11 @@ Done in this repo:
 
 - `.gitignore` covers `.env`, `node_modules`, `.DS_Store` (§1)
 - No secrets, keys or internal URLs anywhere in the source (§1)
-- `_headers` ships HSTS, CSP, X-Content-Type-Options, X-Frame-Options,
-  Referrer-Policy, Permissions-Policy, COOP and CORP (§4)
+- Every page carries a `Content-Security-Policy` meta tag and a referrer
+  policy, so the two headers that matter most survive on GitHub Pages (§4)
+- `_headers` ships the full set — HSTS, CSP, X-Content-Type-Options,
+  X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP and CORP — for
+  the day this moves to a host that reads it (§4)
 - No contact form, so no form attack surface — every CTA is a `mailto:` link
   and the CSP sets `form-action 'none'` (§5)
 - Privacy policy exists, is linked from every footer, and describes what the
@@ -102,14 +107,55 @@ Done in this repo:
 - No `TODO`, `FIXME`, `console.log`, `localhost` or placeholder copy in the
   source (§10)
 
+### Hosting: what GitHub Pages cannot do (§2, §4)
+
+The site is served from GitHub Pages, which does not let you set response
+headers — `_headers` is read by Cloudflare Pages and Netlify, and ignored
+here. Each page therefore carries the policy it can carry in markup:
+
+```
+<meta http-equiv="Content-Security-Policy" content="…">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+```
+
+That recovers the CSP and the referrer policy. `frame-ancestors` is left out
+of the meta version deliberately — it is invalid in a meta tag and browsers
+ignore the whole directive with a console warning.
+
+Still missing, and not fixable from inside the repo:
+
+| Header | Effect of its absence |
+| --- | --- |
+| `Strict-Transport-Security` | First visit over `http://` is downgradeable until Pages' redirect fires |
+| `X-Frame-Options` / `frame-ancestors` | The site can be framed, so clickjacking is possible |
+| `X-Content-Type-Options` | No MIME-sniffing protection |
+| `Permissions-Policy` | Camera, mic, geolocation are not pre-denied |
+| `Cross-Origin-Opener-Policy` / `-Resource-Policy` | No cross-origin isolation |
+
+Putting Cloudflare in front of the Pages origin restores every one of them
+through Transform Rules, on the free plan, without moving the host. That is
+the smallest change that closes this gap. Moving to Cloudflare Pages or
+Netlify closes it too, and `_headers` then works as written with no edits.
+
+### Deploying to Pages
+
+`CNAME` holds `ghoshdesigns.com`. Without it Pages serves the site at
+`/<repo-name>/` and every root-relative path (`/assets/…`) 404s. At the
+registrar, point the apex at GitHub's four A records (185.199.108–111.153),
+add the four AAAA records, and `CNAME www` to
+`<user>.github.io`. Then turn on **Enforce HTTPS** in the repository's Pages
+settings once the certificate is issued.
+
+`.nojekyll` is required: without it Pages runs Jekyll, which silently drops
+files and folders whose names start with `_`.
+
 Still needs a human, because it is hosting and DNS rather than code:
 
-- Deploy to Cloudflare Pages, Netlify or Vercel — `_headers` is ignored by
-  plain GitHub Pages, and the CSP is most of the value here (§2)
-- Cloudflare in front of the domain, DNSSEC on at the registrar, HTTPS
-  enforced, SSL Labs A or better (§2)
+- Cloudflare in front of the domain (see above), DNSSEC on at the registrar,
+  HTTPS enforced, SSL Labs A or better (§2)
 - SPF, DKIM and DMARC (`p=quarantine` or stronger) on the sending domain (§3)
-- Verify at securityheaders.com after the first deploy (§4)
+- Verify at securityheaders.com after the first deploy — expect a low grade
+  until the header gap above is closed (§4)
 - Uptime monitoring; Lighthouse run on the live URL (§7)
 - Submit to Google Search Console (§9)
 - Add a 1200×630 OpenGraph image and an `og:image` tag. The pages ship
@@ -121,7 +167,8 @@ Still needs a human, because it is hosting and DNS rather than code:
 
 Point the form at Formspree, Netlify Forms or Web3Forms, add a honeypot field,
 turn on rate limiting in that dashboard, and add the endpoint host to
-`form-action` in `_headers` — the CSP currently blocks all form submission.
+`form-action` in **both** `_headers` and the meta CSP in each page — the
+policy currently blocks all form submission.
 
 ## Local preview
 

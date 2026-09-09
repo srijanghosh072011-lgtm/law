@@ -1,3 +1,9 @@
+# NOTE: GitHub Pages ignores this file. It is kept for a move to
+# Cloudflare Pages or Netlify, where it works as written. On Pages the
+# CSP and referrer policy come from meta tags in each page instead, and
+# HSTS, X-Frame-Options, X-Content-Type-Options, Permissions-Policy,
+# COOP and CORP cannot be set at all.
+
 # Security headers — Cloudflare Pages / Netlify syntax.
 # Checklist section 4. Verify at https://securityheaders.com after deploy.
 #
