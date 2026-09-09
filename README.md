@@ -67,14 +67,14 @@ missing the hero still renders, it just loses the photograph.
 
 ## Before it goes live
 
-The domain (`ghoshdesigns.com`) and the contact address are both real — no
+The domain (`ghoshdesigns.ca`) and the contact address are both real — no
 placeholders left. Walk `SECURITY.md` top to bottom, then note the two items
 below.
 
 **The contact address is a personal Gmail.** SECURITY.md §3 asks for one on the
 custom domain, because a Gmail cannot carry SPF, DKIM or DMARC for
-`ghoshdesigns.com` and it reads as less established on a studio site. It is
-here because `hello@ghoshdesigns.com` is a no-reply used by automation. When a
+`ghoshdesigns.ca` and it reads as less established on a studio site. It is
+here because `hello@ghoshdesigns.ca` is a no-reply used by automation. When a
 real mailbox on the domain exists — `srijan@`, `studio@`, anything — it is one
 find-and-replace across the six pages.
 
@@ -139,7 +139,7 @@ Netlify closes it too, and `_headers` then works as written with no edits.
 
 ### Deploying to Pages
 
-`CNAME` holds `ghoshdesigns.com`. Without it Pages serves the site at
+`CNAME` holds `ghoshdesigns.ca`. Without it Pages serves the site at
 `/<repo-name>/` and every root-relative path (`/assets/…`) 404s. At the
 registrar, point the apex at GitHub's four A records (185.199.108–111.153),
 add the four AAAA records, and `CNAME www` to

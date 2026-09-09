@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ghoshdesigns.com/sitemap.xml
+Sitemap: https://ghoshdesigns.ca/sitemap.xml
