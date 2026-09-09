@@ -41,13 +41,13 @@
   /* Hero photograph, cut from tools/hero-source.jpg by tools/prepare-hero.py.
      Swap the URL to use a different one; the gradients under it stay as the
      fallback if the file ever 404s. */
-  --hero-photo: url("/assets/img/hero.webp");
+  --hero-photo: url("../img/hero.webp");
   --section: clamp(68px, 9vw, 128px);
 }
 
 @media (max-width: 800px) {
   :root {
-    --hero-photo: url("/assets/img/hero-sm.webp");
+    --hero-photo: url("../img/hero-sm.webp");
   }
 }
 
@@ -863,14 +863,14 @@ body.is-locked .masthead {
    requested and the gradients below show through. To use a real photograph,
    drop the file in /assets/img/ and set the property once:
 
-     :root { --hero-photo: url("/assets/img/hero.webp"); }
+     :root { --hero-photo: url("../img/hero.webp"); }
 
    image-set() works here too, for serving a 2x file to dense screens:
 
      :root {
        --hero-photo: image-set(
-         url("/assets/img/hero.webp") type("image/webp") 1x,
-         url("/assets/img/hero@2x.webp") type("image/webp") 2x
+         url("../img/hero.webp") type("image/webp") 1x,
+         url("../img/hero@2x.webp") type("image/webp") 2x
        );
      }
 */

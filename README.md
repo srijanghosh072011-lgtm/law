@@ -149,6 +149,18 @@ settings once the certificate is issued.
 `.nojekyll` is required: without it Pages runs Jekyll, which silently drops
 files and folders whose names start with `_`.
 
+**Paths are document-relative, not root-relative** (`../assets/…`, not
+`/assets/…`). That is deliberate: it means the site renders correctly at the
+apex domain, at a project subpath like `user.github.io/repo/`, and from a
+local preview, without a base tag or a build step. Root-relative paths break
+everywhere except a domain root — the stylesheet 404s and the page renders as
+raw markup. If you add a page, match the depth: root pages use `./`, pages one
+folder down use `../`.
+
+Canonical tags, `og:url` and the JSON-LD `url`/`@id` fields stay absolute on
+purpose. Those name the one true production URL and are never resolved
+against the current document, so they must not be relative.
+
 Still needs a human, because it is hosting and DNS rather than code:
 
 - Cloudflare in front of the domain (see above), DNSSEC on at the registrar,
