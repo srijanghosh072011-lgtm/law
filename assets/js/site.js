@@ -88,6 +88,75 @@
     });
   });
 
+  /* ----------------------------------------------------------- contact */
+
+  /* Every CTA links here as contact/?s=Subject. Write that subject into the
+     three compose links so the mail arrives pre-labelled. If this never runs,
+     the links still work without a subject. */
+  var subject = new URLSearchParams(window.location.search).get("s");
+
+  if (subject) {
+    var note = document.querySelector("[data-subject-note]");
+    if (note) {
+      note.textContent = "Subject: " + subject;
+      note.hidden = false;
+    }
+    each(document.querySelectorAll("[data-mail-link], [data-mail-app]"), function (a) {
+      a.href = a.href.split("?")[0] + "?subject=" + encodeURIComponent(subject);
+    });
+    var gmail = document.querySelector("[data-mail-gmail]");
+    if (gmail) gmail.href += "&su=" + encodeURIComponent(subject);
+    var outlook = document.querySelector("[data-mail-outlook]");
+    if (outlook) outlook.href += "&subject=" + encodeURIComponent(subject);
+  }
+
+  each(document.querySelectorAll("[data-copy]"), function (btn) {
+    var label = btn.querySelector("[data-copy-label]");
+    var original = label ? label.textContent : "";
+    var timer;
+
+    btn.addEventListener("click", function () {
+      var text = btn.getAttribute("data-copy");
+      // clipboard.writeText needs a secure context; the fallback covers plain
+      // http, which is how the site is previewed locally.
+      var done = function (ok) {
+        if (!label) return;
+        label.textContent = ok ? "Copied" : "Press Ctrl+C to copy";
+        btn.classList.toggle("is-copied", ok);
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          label.textContent = original;
+          btn.classList.remove("is-copied");
+        }, 2400);
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function () {
+          done(true);
+        }, function () {
+          done(false);
+        });
+        return;
+      }
+
+      var field = document.createElement("textarea");
+      field.value = text;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      var ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (e) {
+        ok = false;
+      }
+      document.body.removeChild(field);
+      done(ok);
+    });
+  });
+
   /* ------------------------------------------------- reveals & sticky nav */
 
   /* Content is visible in the stylesheet and hidden here, never the other way

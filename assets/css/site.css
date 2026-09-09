@@ -384,6 +384,23 @@ p {
   background: #f2f4f7;
 }
 
+/* A quiet button for choices that sit beside a primary one: same pill, same
+   height, but reading as an outline rather than a filled action. */
+.btn--quiet {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+
+.btn--quiet .btn__icon {
+  background: rgba(11, 12, 14, 0.06);
+}
+
+.btn--quiet:hover {
+  background: #f7f8fa;
+  border-color: rgba(11, 12, 14, 0.22);
+}
+
 .btn-row {
   display: flex;
   flex-wrap: wrap;
@@ -1918,4 +1935,70 @@ section[id],
     transform: none;
     filter: none;
   }
+}
+
+
+/* ------------------------------------------------------------ contact card */
+
+/* The one place the address appears in the markup. Everything else on the site
+   links here, so there is a single thing to change and a single thing to
+   scrape. */
+.mailcard {
+  padding: clamp(24px, 3.4vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--sheet);
+  box-shadow: var(--shadow-soft), var(--shadow-inset);
+}
+
+.mailcard__addr {
+  margin: 10px 0 0;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: clamp(1.5rem, 4.6vw, 2.5rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  /* Long address, narrow phone: break rather than push the card sideways. */
+  overflow-wrap: anywhere;
+}
+
+.mailcard__addr a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--line-strong);
+  transition: border-color 0.4s var(--ease);
+}
+
+.mailcard__addr a:hover {
+  border-color: var(--blue);
+}
+
+.mailcard__subject {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.mailcard__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: clamp(20px, 2.6vw, 28px);
+}
+
+.mailcard__note {
+  margin: clamp(18px, 2.4vw, 24px) 0 0;
+  padding-top: clamp(16px, 2vw, 20px);
+  border-top: 1px solid var(--line);
+  max-width: 62ch;
+  color: var(--muted);
+}
+
+/* Confirmation after a copy. Colour alone would not carry it, so the label
+   text changes too. */
+.mailcard__acts .is-copied {
+  background: var(--blue);
+  color: #fff;
+}
+
+.mailcard__acts .is-copied .btn__icon {
+  background: rgba(255, 255, 255, 0.2);
 }

@@ -10,6 +10,7 @@ automation/index.html      Landing page — "automation"
 websites/index.html        Landing page — "website design"
 seo/index.html             Landing page — "SEO"
 local-seo/index.html       Landing page — "local SEO"
+contact/index.html         Contact — the only page with the address in it
 privacy/index.html         Privacy policy
 assets/css/site.css        The whole design system
 assets/js/site.js          Nav, tabs, scroll reveals (~110 lines)
@@ -71,6 +72,14 @@ The domain (`ghoshdesigns.ca`) and the contact address are both real — no
 placeholders left. Walk `SECURITY.md` top to bottom, then note the two items
 below.
 
+**Contact goes through `/contact/`, not `mailto:`.** Every CTA on the site
+links to that page carrying its subject as `?s=`, and the page offers four
+routes: copy the address, open Gmail, open Outlook, or hand off to a mail app.
+A bare `mailto:` link does nothing at all on a machine with no mail program
+registered, which is most machines now that people use webmail — so a
+`mailto:`-only site has dead buttons for a large share of its visitors. The
+address appears in the markup exactly once, on that page.
+
 **The contact address is a personal Gmail.** SECURITY.md §3 asks for one on the
 custom domain, because a Gmail cannot carry SPF, DKIM or DMARC for
 `ghoshdesigns.ca` and it reads as less established on a studio site. It is
@@ -93,8 +102,8 @@ Done in this repo:
 - `_headers` ships the full set — HSTS, CSP, X-Content-Type-Options,
   X-Frame-Options, Referrer-Policy, Permissions-Policy, COOP and CORP — for
   the day this moves to a host that reads it (§4)
-- No contact form, so no form attack surface — every CTA is a `mailto:` link
-  and the CSP sets `form-action 'none'` (§5)
+- No contact form, so no form attack surface — contact runs through
+  `/contact/` and the CSP sets `form-action 'none'` (§5)
 - Privacy policy exists, is linked from every footer, and describes what the
   site actually does — no cookies, no analytics, no forms (§6)
 - The one raster image is WebP, self-hosted, served at two sizes and
@@ -176,6 +185,9 @@ Still needs a human, because it is hosting and DNS rather than code:
   source; `prepare-hero.py` will not do it, as it only writes hero widths.
 
 ### If a contact form is added later
+
+It would replace the compose buttons on `/contact/`; the rest of the site
+already points there, so no other page changes.
 
 Point the form at Formspree, Netlify Forms or Web3Forms, add a honeypot field,
 turn on rate limiting in that dashboard, and add the endpoint host to
