@@ -40,7 +40,32 @@
       "url": "https://ghoshdesigns.ca/websites/",
       "description": "Hand-built, fast, accessible websites for small businesses, with a landing page for each service the business wants to be found for.",
       "provider": { "@type": "Organization", "name": "Ghosh Designs", "url": "https://ghoshdesigns.ca/" },
-      "areaServed": "Worldwide"
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Website build",
+          "description": "One-time. Designed, built and launched; payable once the site is live.",
+          "price": "1500",
+          "priceCurrency": "CAD"
+        },
+        {
+          "@type": "Offer",
+          "name": "Ongoing care",
+          "description": "Optional monthly plan: edits, new pages, hosting, monitoring and backups.",
+          "priceCurrency": "CAD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": "250",
+            "priceCurrency": "CAD",
+            "referenceQuantity": { "@type": "QuantitativeValue", "value": 1, "unitCode": "MON" }
+          }
+        }
+      ],
+      "areaServed": [
+        { "@type": "City", "name": "Regina" },
+        { "@type": "AdministrativeArea", "name": "Saskatchewan" },
+        { "@type": "Country", "name": "Canada" }
+      ]
     },
     {
       "@type": "BreadcrumbList",
@@ -510,6 +535,45 @@
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="wrap section" id="pricing" aria-labelledby="price-h">
+    <div class="split" data-reveal>
+      <h2 class="headline" id="price-h">What it costs</h2>
+      <p class="lede">Both numbers are on this page rather than behind a discovery call. If what
+      you need falls outside this shape, you get a fixed quote before anything starts &mdash; still
+      a number agreed up front, never an hourly meter.</p>
+    </div>
+
+    <div class="bento bento--split bay">
+      <article class="card span-6" data-reveal>
+        <p class="eyebrow">Website build</p>
+        <p class="price"><span class="price__fig">$1,500</span><span class="price__unit">CAD &middot; one-time</span></p>
+        <p class="body">Designed, built and launched. You do not pay until it is live and you are
+        happy with it.</p>
+        <ul class="ticks">
+          <li>Designed and hand-coded around your business, not a template</li>
+          <li>A page for each thing you want to be found for</li>
+          <li>Fast and readable on a phone, which is where most of your visitors are</li>
+          <li>Domain, hosting and logins in your name from day one</li>
+        </ul>
+        <p class="card__foot"><a class="tlink" href="../contact/?s=Website%20enquiry">Start a site <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 11.5 11.5 4.5M6 4.5h5.5V10"/></svg></a></p>
+      </article>
+
+      <article class="card card--blue span-6" data-reveal>
+        <p class="eyebrow eyebrow--dark">Looking after it</p>
+        <p class="price"><span class="price__fig">$250</span><span class="price__unit">CAD &middot; per month</span></p>
+        <p class="body">Optional. The build is yours either way &mdash; this is for not having to think
+        about it afterwards.</p>
+        <ul class="ticks ticks--light">
+          <li>Same-day edits &mdash; message me and it is live</li>
+          <li>New pages as the business grows</li>
+          <li>Hosting and uptime monitoring</li>
+          <li>Backups, and someone to call when something breaks</li>
+        </ul>
+        <p class="card__foot"><a class="tlink tlink--light" href="../contact/?s=Website%20enquiry">Ask about the monthly <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 11.5 11.5 4.5M6 4.5h5.5V10"/></svg></a></p>
+      </article>
     </div>
   </section>
 

@@ -2002,3 +2002,72 @@ section[id],
 .mailcard__acts .is-copied .btn__icon {
   background: rgba(255, 255, 255, 0.2);
 }
+
+
+/* ----------------------------------------------------------------- pricing */
+
+.price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+
+.price__fig {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.price__unit {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.card--blue .price__unit {
+  /* On the blue card the muted grey drops under AA, so the unit takes a
+     translucent white instead. 0.82 measured 4.44:1 against the painted
+     card -- just under -- so it sits at 0.88. */
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.ticks {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.ticks li {
+  position: relative;
+  padding-left: 28px;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+/* The tick is drawn rather than a character, so it keeps its weight at any
+   size and never falls back to a font that lacks the glyph. */
+.ticks li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.52em;
+  width: 11px;
+  height: 6px;
+  border-left: 2px solid var(--blue);
+  border-bottom: 2px solid var(--blue);
+  transform: rotate(-45deg);
+}
+
+.ticks--light li {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ticks--light li::before {
+  border-color: #fff;
+}
