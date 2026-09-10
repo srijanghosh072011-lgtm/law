@@ -2071,3 +2071,53 @@ section[id],
 .ticks--light li::before {
   border-color: #fff;
 }
+
+
+/* ------------------------------------------------------------------- terms */
+
+/* Numbered clauses, all visible. Nothing to click open: terms nobody can see
+   at a glance are terms nobody reads. */
+.terms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  counter-reset: clause;
+  border-top: 1px solid var(--line);
+}
+
+.terms__row {
+  counter-increment: clause;
+  display: grid;
+  grid-template-columns: 2.4rem 1fr;
+  gap: 4px 16px;
+  padding: clamp(20px, 2.6vw, 28px) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.terms__row::before {
+  content: counter(clause);
+  grid-row: 1 / span 2;
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  color: var(--blue);
+}
+
+.terms__head {
+  margin: 0;
+  font-size: clamp(1.02rem, 1.6vw, 1.16rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.terms__row .body {
+  margin: 6px 0 0;
+  max-width: 68ch;
+}
+
+@media (max-width: 560px) {
+  .terms__row {
+    grid-template-columns: 1.8rem 1fr;
+    gap: 2px 12px;
+  }
+}
